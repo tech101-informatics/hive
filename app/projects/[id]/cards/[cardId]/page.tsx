@@ -63,6 +63,10 @@ export default function CardPage() {
       onUpdated={() => {
         window.dispatchEvent(new CustomEvent("task-updated"));
       }}
+      onDeleted={() => {
+        window.dispatchEvent(new CustomEvent("task-updated"));
+        navigateToBoard();
+      }}
     />
   );
 }

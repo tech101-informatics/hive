@@ -27,6 +27,7 @@ export interface ITask extends Document {
   labels: string[];
   checklist: IChecklistItem[];
   cardNumber: number;
+  archived: boolean;
   slackThreadTs: string;
   createdAt: Date;
   updatedAt: Date;
@@ -48,6 +49,7 @@ const TaskSchema = new Schema<ITask>(
     labels: { type: [String], default: [] },
     checklist: { type: [ChecklistItemSchema], default: [] },
     cardNumber: { type: Number, unique: true, sparse: true },
+    archived: { type: Boolean, default: false },
     slackThreadTs: { type: String, default: "" },
   },
   { timestamps: true }

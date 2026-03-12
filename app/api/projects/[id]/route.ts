@@ -1,6 +1,10 @@
+export const dynamic = "force-dynamic"
+export const maxDuration = 30
+
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { Project } from "@/models/Project";
+import { Task } from "@/models/Task";
 import { sendSlackNotification } from "@/lib/slack";
 import { getSessionOrUnauthorized, requireAdmin } from "@/lib/auth-helpers";
 
@@ -33,6 +37,7 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
   if (error) return error;
   const { id } = await params;
   await connectDB();
+  await Task.deleteMany({ projectId: id });
   await Project.findByIdAndDelete(id);
   return NextResponse.json({ success: true });
 }

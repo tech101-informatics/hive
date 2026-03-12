@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic"
+export const maxDuration = 30
+
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { Project } from "@/models/Project";
@@ -11,8 +14,9 @@ export async function GET() {
   if (error) return error;
   await connectDB();
   const [projects, taskCounts, boardStatuses] = await Promise.all([
-    Project.find().sort({ createdAt: -1 }).lean(),
+    Project.find({ status: { $ne: "archived" } }).sort({ createdAt: -1 }).lean(),
     Task.aggregate([
+      { $match: { archived: { $ne: true } } },
       { $group: { _id: { projectId: "$projectId", status: "$status" }, count: { $sum: 1 } } },
     ]),
     BoardStatus.find().sort({ order: 1 }).lean(),

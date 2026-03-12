@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic"
+export const maxDuration = 30
+
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { Task } from "@/models/Task";
@@ -24,7 +27,10 @@ export async function GET(req: NextRequest) {
   await connectDB();
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
-  const filter = projectId ? { projectId } : {};
+  const includeArchived = searchParams.get("archived") === "true";
+  const filter: Record<string, unknown> = {};
+  if (projectId) filter.projectId = projectId;
+  if (!includeArchived) filter.archived = { $ne: true };
   const tasks = await Task.find(filter).sort({ createdAt: -1 }).lean<Array<Record<string, unknown>>>();
 
   // Backfill card numbers for existing tasks that don't have one

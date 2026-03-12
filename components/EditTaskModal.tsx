@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import {
   X,
   Trash2,
+  Archive,
   MessageSquare,
   Flag,
   User,
@@ -21,9 +22,11 @@ import {
   ChevronsUpDown,
   Clock,
   History,
+  MoreVertical,
 } from "lucide-react";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { AssigneeDropdown, MemberAvatar } from "@/components/AssigneeDropdown";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 interface ChecklistItem {
   _id?: string;
@@ -80,6 +83,7 @@ interface Props {
   boardStatus: string;
   onClose: () => void;
   onUpdated: () => void;
+  onDeleted?: () => void;
 }
 
 const PRIORITY_OPTIONS = [
@@ -96,6 +100,7 @@ export function EditTaskModal({
   boardStatus: _boardStatus,
   onClose,
   onUpdated,
+  onDeleted,
 }: Props) {
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
@@ -176,6 +181,10 @@ export function EditTaskModal({
     }[]
   >([]);
   const [rightTab, setRightTab] = useState<"comments" | "activity">("comments");
+  const [confirmAction, setConfirmAction] = useState<"delete" | "archive" | null>(null);
+  const [showCardMenu, setShowCardMenu] = useState(false);
+  const cardMenuRef = useRef<HTMLDivElement>(null);
+  const isAdmin = session?.user?.role === "admin";
 
   const cardNumberFormatted = task.cardNumber
     ? `SP-${String(task.cardNumber).padStart(3, "0")}`
@@ -204,6 +213,16 @@ export function EditTaskModal({
       document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showCopyMenu]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (cardMenuRef.current && !cardMenuRef.current.contains(e.target as Node)) {
+        setShowCardMenu(false);
+      }
+    };
+    if (showCardMenu) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showCardMenu]);
 
   useEffect(() => {
     fetch("/api/members")
@@ -359,6 +378,23 @@ export function EditTaskModal({
     fetchComments();
   };
 
+  const handleDeleteTask = async () => {
+    await fetch(`/api/tasks/${task._id}`, { method: "DELETE" });
+    setConfirmAction(null);
+    onDeleted ? onDeleted() : onClose();
+  };
+
+  const handleArchiveTask = async () => {
+    await fetch(`/api/tasks/${task._id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ archived: true }),
+    });
+    setConfirmAction(null);
+    onUpdated();
+    onClose();
+  };
+
   const initials = (name: string) =>
     name
       .split(" ")
@@ -485,6 +521,39 @@ export function EditTaskModal({
               >
                 {saving ? "Saving..." : "Save"}
               </button>
+            )}
+            {isAdmin && (
+              <div className="relative" ref={cardMenuRef}>
+                <button
+                  onClick={() => setShowCardMenu((p) => !p)}
+                  className="p-2 hover:bg-bg-surface rounded-lg transition-colors"
+                >
+                  <MoreVertical size={16} className="text-text-disabled" />
+                </button>
+                {showCardMenu && (
+                  <div className="absolute right-0 top-full mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-40 py-1">
+                    <button
+                      onClick={() => {
+                        setShowCardMenu(false);
+                        setConfirmAction("archive");
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-primary hover:bg-bg-surface transition-colors"
+                    >
+                      <Archive size={14} /> Archive
+                    </button>
+                    <div className="h-px bg-border-subtle my-0.5" />
+                    <button
+                      onClick={() => {
+                        setShowCardMenu(false);
+                        setConfirmAction("delete");
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-danger hover:bg-bg-surface transition-colors"
+                    >
+                      <Trash2 size={14} /> Delete
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
             <button
               onClick={handleClose}
@@ -1244,6 +1313,21 @@ export function EditTaskModal({
           </div>
         </div>
       </div>
+
+      {confirmAction && (
+        <ConfirmModal
+          title={confirmAction === "delete" ? "Delete Card" : "Archive Card"}
+          message={
+            confirmAction === "delete"
+              ? `"${task.title}" will be permanently deleted along with all comments and activity. This cannot be undone.`
+              : `"${task.title}" will be archived and hidden from the board. You can restore it later.`
+          }
+          confirmText={confirmAction === "delete" ? "Delete" : "Archive"}
+          variant={confirmAction === "delete" ? "danger" : "warning"}
+          onConfirm={confirmAction === "delete" ? handleDeleteTask : handleArchiveTask}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
     </>
   );
 }

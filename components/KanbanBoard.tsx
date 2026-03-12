@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Trash2,
+  Archive,
   Calendar,
   User,
   Flag,
@@ -12,7 +13,9 @@ import {
   GitPullRequest,
   Tag,
   Hash,
+  MoreVertical,
 } from "lucide-react";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 interface Task {
   _id: string;
@@ -84,6 +87,20 @@ export function KanbanBoard({
   >({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+    type: "delete" | "archive";
+    taskId: string;
+    taskTitle: string;
+  } | null>(null);
+  const [cardMenuId, setCardMenuId] = useState<string | null>(null);
+
+  // Close card menu on outside click
+  useEffect(() => {
+    if (!cardMenuId) return;
+    const handleClick = () => setCardMenuId(null);
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [cardMenuId]);
 
   // Clear optimistic overrides once parent tasks have caught up
   useEffect(() => {
@@ -165,8 +182,16 @@ export function KanbanBoard({
   };
 
   const deleteTask = async (id: string) => {
-    if (!confirm("Delete this card?")) return;
     await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    onTaskUpdated();
+  };
+
+  const archiveTask = async (id: string) => {
+    await fetch(`/api/tasks/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ archived: true }),
+    });
     onTaskUpdated();
   };
 
@@ -230,13 +255,41 @@ export function KanbanBoard({
                         <Pencil size={12} />
                       </button>
                       {isAdmin && (
-                        <button
-                          onClick={() => deleteTask(task._id)}
-                          className="p-1 text-text-disabled hover:text-danger transition-colors"
-                          title="Delete task"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        <div className="relative">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCardMenuId(cardMenuId === task._id ? null : task._id);
+                            }}
+                            className="p-1 text-text-disabled hover:text-text-primary transition-colors"
+                          >
+                            <MoreVertical size={13} />
+                          </button>
+                          {cardMenuId === task._id && (
+                            <div className="absolute right-0 top-full mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-36 py-1">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCardMenuId(null);
+                                  setConfirmAction({ type: "archive", taskId: task._id, taskTitle: task.title });
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-surface transition-colors"
+                              >
+                                <Archive size={13} /> Archive
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCardMenuId(null);
+                                  setConfirmAction({ type: "delete", taskId: task._id, taskTitle: task.title });
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-danger hover:bg-bg-surface transition-colors"
+                              >
+                                <Trash2 size={13} /> Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -362,6 +415,28 @@ export function KanbanBoard({
           </div>
         ))}
       </div>
+
+      {confirmAction && (
+        <ConfirmModal
+          title={confirmAction.type === "delete" ? "Delete Card" : "Archive Card"}
+          message={
+            confirmAction.type === "delete"
+              ? `"${confirmAction.taskTitle}" will be permanently deleted. This action cannot be undone.`
+              : `"${confirmAction.taskTitle}" will be archived and hidden from the board. You can restore it later.`
+          }
+          confirmText={confirmAction.type === "delete" ? "Delete" : "Archive"}
+          variant={confirmAction.type === "delete" ? "danger" : "warning"}
+          onConfirm={() => {
+            if (confirmAction.type === "delete") {
+              deleteTask(confirmAction.taskId);
+            } else {
+              archiveTask(confirmAction.taskId);
+            }
+            setConfirmAction(null);
+          }}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
     </>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
@@ -13,10 +13,14 @@ import {
   Flag,
   User,
   Tag,
+  MoreVertical,
+  Archive,
+  Trash2,
 } from "lucide-react";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { CreateTaskModal } from "@/components/CreateTaskModal";
 import { AssigneeDropdown } from "@/components/AssigneeDropdown";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 interface Project {
   _id: string;
@@ -167,6 +171,7 @@ function MultiFilterDropdown({
 
 export default function ProjectPage() {
   const { id } = useParams();
+  const router = useRouter();
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "admin";
   const [project, setProject] = useState<Project | null>(null);
@@ -174,6 +179,9 @@ export default function ProjectPage() {
   const [columns, setColumns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [boardMenuOpen, setBoardMenuOpen] = useState(false);
+  const boardMenuRef = useRef<HTMLDivElement>(null);
+  const [confirmAction, setConfirmAction] = useState<"delete" | "archive" | null>(null);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -261,6 +269,31 @@ export default function ProjectPage() {
     return () => window.removeEventListener("task-updated", handler);
   }, []);
 
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (boardMenuRef.current && !boardMenuRef.current.contains(e.target as Node))
+        setBoardMenuOpen(false);
+    };
+    if (boardMenuOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [boardMenuOpen]);
+
+  const handleDeleteBoard = async () => {
+    await fetch(`/api/projects/${id}`, { method: "DELETE" });
+    setConfirmAction(null);
+    router.push("/projects");
+  };
+
+  const handleArchiveBoard = async () => {
+    await fetch(`/api/projects/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "archived" }),
+    });
+    setConfirmAction(null);
+    router.push("/projects");
+  };
+
   const initials = (name: string) =>
     name
       .split(" ")
@@ -310,12 +343,45 @@ export default function ProjectPage() {
           </div>
         </div>
         {isAdmin && (
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-brand text-sm text-white px-4 py-2 rounded-lg hover:bg-brand-hover font-medium transition-colors"
-          >
-            <Plus size={16} /> Add Card
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 bg-brand text-sm text-white px-4 py-2 rounded-lg hover:bg-brand-hover font-medium transition-colors"
+            >
+              <Plus size={16} /> Add Card
+            </button>
+            <div className="relative" ref={boardMenuRef}>
+              <button
+                onClick={() => setBoardMenuOpen((p) => !p)}
+                className="p-2 hover:bg-bg-card rounded-lg transition-colors"
+              >
+                <MoreVertical size={18} className="text-text-secondary" />
+              </button>
+              {boardMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-44 py-1">
+                  <button
+                    onClick={() => {
+                      setBoardMenuOpen(false);
+                      setConfirmAction("archive");
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-primary hover:bg-bg-surface transition-colors"
+                  >
+                    <Archive size={14} /> Archive Board
+                  </button>
+                  <div className="h-px bg-border-subtle my-0.5" />
+                  <button
+                    onClick={() => {
+                      setBoardMenuOpen(false);
+                      setConfirmAction("delete");
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-danger hover:bg-bg-surface transition-colors"
+                  >
+                    <Trash2 size={14} /> Delete Board
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
@@ -470,6 +536,21 @@ export default function ProjectPage() {
             setShowModal(false);
             fetchData();
           }}
+        />
+      )}
+
+      {confirmAction && (
+        <ConfirmModal
+          title={confirmAction === "delete" ? "Delete Board" : "Archive Board"}
+          message={
+            confirmAction === "delete"
+              ? `"${project?.name}" and all its cards will be permanently deleted. This cannot be undone.`
+              : `"${project?.name}" will be archived and hidden. You can restore it later.`
+          }
+          confirmText={confirmAction === "delete" ? "Delete" : "Archive"}
+          variant={confirmAction === "delete" ? "danger" : "warning"}
+          onConfirm={confirmAction === "delete" ? handleDeleteBoard : handleArchiveBoard}
+          onCancel={() => setConfirmAction(null)}
         />
       )}
     </div>

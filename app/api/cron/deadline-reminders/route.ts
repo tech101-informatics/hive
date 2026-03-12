@@ -7,9 +7,11 @@ import { sendSlackNotification, buildSlackMap } from "@/lib/slack";
 const CRON_SECRET = process.env.CRON_SECRET || "";
 
 export async function GET(req: NextRequest) {
-  // Verify cron secret
+  // Verify cron secret (supports both query param and Vercel Cron Authorization header)
   const secret = req.nextUrl.searchParams.get("secret");
-  if (CRON_SECRET && secret !== CRON_SECRET) {
+  const authHeader = req.headers.get("authorization");
+  const bearerMatch = authHeader === `Bearer ${CRON_SECRET}`;
+  if (CRON_SECRET && secret !== CRON_SECRET && !bearerMatch) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
