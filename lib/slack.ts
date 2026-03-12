@@ -1,7 +1,36 @@
+import crypto from "crypto";
+
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL || "";
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN || "";
 const SLACK_CHANNEL_ID = process.env.SLACK_CHANNEL_ID || "";
-const APP_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
+const APP_URL = process.env.APP_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
+
+// --------------- signature verification ---------------
+
+export function verifySlackRequest(
+  signingSecret: string,
+  signature: string,
+  timestamp: string,
+  rawBody: string,
+): boolean {
+  const fiveMinutesAgo = Math.floor(Date.now() / 1000) - 300;
+  if (parseInt(timestamp) < fiveMinutesAgo) return false;
+
+  const base = `v0:${timestamp}:${rawBody}`;
+  const hmac = crypto
+    .createHmac("sha256", signingSecret)
+    .update(base)
+    .digest("hex");
+
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(`v0=${hmac}`),
+      Buffer.from(signature),
+    );
+  } catch {
+    return false;
+  }
+}
 
 // --------------- types ---------------
 
@@ -58,14 +87,16 @@ async function slackApiPost(endpoint: string, body: Record<string, unknown>) {
   return data;
 }
 
-async function postToChannel(text: string) {
+async function postToChannel(text: string, threadTs?: string): Promise<string | undefined> {
   if (SLACK_BOT_TOKEN && SLACK_CHANNEL_ID) {
-    await slackApiPost("chat.postMessage", {
+    const payload: Record<string, unknown> = {
       channel: SLACK_CHANNEL_ID,
       text,
       unfurl_links: false,
-    });
-    return;
+    };
+    if (threadTs) payload.thread_ts = threadTs;
+    const data = await slackApiPost("chat.postMessage", payload);
+    return data.ts as string | undefined;
   }
   if (SLACK_WEBHOOK_URL) {
     const res = await fetch(SLACK_WEBHOOK_URL, {
@@ -75,9 +106,10 @@ async function postToChannel(text: string) {
     });
     if (!res.ok) console.error("Slack webhook failed:", await res.text());
   }
+  return undefined;
 }
 
-async function sendDM(slackUserId: string, text: string) {
+export async function sendSlackDM(slackUserId: string, text: string) {
   if (!SLACK_BOT_TOKEN) return;
   const openData = await slackApiPost("conversations.open", { users: slackUserId });
   if (!openData.ok) return;
@@ -99,7 +131,7 @@ async function sendDMsToMembers(
     const slackId = slackMap.get(name);
     if (slackId) {
       console.log(`[Slack DM] Sending to "${name}" → ${slackId}`);
-      await sendDM(slackId, text);
+      await sendSlackDM(slackId, text);
     } else {
       console.log(`[Slack DM] No slackId found for "${name}" — available keys:`, Array.from(slackMap.keys()).join(", "));
     }
@@ -154,13 +186,14 @@ export async function fetchSlackUsers(): Promise<SlackUser[]> {
 export async function sendSlackNotification(
   event: SlackEvent,
   slackMap?: Map<string, string>,
-) {
+  threadTs?: string,
+): Promise<string | undefined> {
   if (!SLACK_WEBHOOK_URL && !SLACK_BOT_TOKEN) {
     console.log("[Slack] Not configured — SLACK_WEBHOOK_URL and SLACK_BOT_TOKEN both empty");
-    return;
+    return undefined;
   }
   const map = slackMap || new Map<string, string>();
-  console.log("[Slack] Sending notification:", event.type, "| map size:", map.size);
+  console.log("[Slack] Sending notification:", event.type, "| map size:", map.size, "| threadTs:", threadTs || "none");
 
   try {
     switch (event.type) {
@@ -169,7 +202,7 @@ export async function sendSlackNotification(
         const assigneeText = event.assignees?.length
           ? ` → assigned to ${tagUsers(event.assignees, map)}`
           : "";
-        await postToChannel(`🆕 *New Card:* ${link} in *${event.projectName}*${assigneeText}`);
+        const ts = await postToChannel(`🆕 *New Card:* ${link} in *${event.projectName}*${assigneeText}`);
         // DM all assignees (including creator if they assigned themselves)
         if (event.assignees?.length) {
           await sendDMsToMembers(
@@ -178,13 +211,13 @@ export async function sendSlackNotification(
             map,
           );
         }
-        break;
+        return ts;
       }
       case "task_status_changed": {
         const link = taskLink(event.projectId, event.taskId, event.taskTitle);
         const emoji = STATUS_EMOJI[event.to] ?? "🔄";
         const byText = event.changedBy ? ` by ${tagUser(event.changedBy, map)}` : "";
-        await postToChannel(`${emoji} *Status:* ${link} moved *${event.from}* → *${event.to}*${byText}`);
+        await postToChannel(`${emoji} *Status:* ${link} moved *${event.from}* → *${event.to}*${byText}`, threadTs);
         if (event.assignees?.length) {
           await sendDMsToMembers(
             event.assignees,
@@ -197,7 +230,7 @@ export async function sendSlackNotification(
       case "task_assigned": {
         const link = taskLink(event.projectId, event.taskId, event.taskTitle);
         const byText = event.assignedBy ? ` by ${tagUser(event.assignedBy, map)}` : "";
-        await postToChannel(`👤 *Assigned:* ${link} → ${tagUsers(event.assignees, map)}${byText}`);
+        await postToChannel(`👤 *Assigned:* ${link} → ${tagUsers(event.assignees, map)}${byText}`, threadTs);
         // DM all assignees including the person who assigned (self-assign should notify)
         await sendDMsToMembers(
           event.assignees,
@@ -208,7 +241,7 @@ export async function sendSlackNotification(
       }
       case "task_deadline": {
         const link = taskLink(event.projectId, event.taskId, event.taskTitle);
-        await postToChannel(`⏰ *Deadline:* ${link} in *${event.projectName}* is due on *${event.deadline}*`);
+        await postToChannel(`⏰ *Deadline:* ${link} in *${event.projectName}* is due on *${event.deadline}*`, threadTs);
         if (event.assignees?.length) {
           await sendDMsToMembers(
             event.assignees,
@@ -221,7 +254,7 @@ export async function sendSlackNotification(
       case "task_priority_changed": {
         const link = taskLink(event.projectId, event.taskId, event.taskTitle);
         const byText = event.changedBy ? ` by ${tagUser(event.changedBy, map)}` : "";
-        await postToChannel(`🔺 *Priority:* ${link} changed *${event.from}* → *${event.to}*${byText}`);
+        await postToChannel(`🔺 *Priority:* ${link} changed *${event.from}* → *${event.to}*${byText}`, threadTs);
         if (event.assignees?.length) {
           await sendDMsToMembers(
             event.assignees,
@@ -238,7 +271,7 @@ export async function sendSlackNotification(
         if (event.added.length) parts.push(`added *${event.added.join(", ")}*`);
         if (event.removed.length) parts.push(`removed *${event.removed.join(", ")}*`);
         const changeText = parts.join(", ");
-        await postToChannel(`🏷️ *Labels:* ${link} — ${changeText}${byText}`);
+        await postToChannel(`🏷️ *Labels:* ${link} — ${changeText}${byText}`, threadTs);
         if (event.assignees?.length) {
           await sendDMsToMembers(
             event.assignees,
@@ -250,7 +283,7 @@ export async function sendSlackNotification(
       }
       case "comment_added": {
         const link = taskLink(event.projectId, event.taskId, event.taskTitle);
-        await postToChannel(`💬 *Comment* on ${link} by ${tagUser(event.author, map)}`);
+        await postToChannel(`💬 *Comment* on ${link} by ${tagUser(event.author, map)}`, threadTs);
         if (event.assignees?.length) {
           await sendDMsToMembers(
             event.assignees,
@@ -274,6 +307,7 @@ export async function sendSlackNotification(
   } catch (err) {
     console.error("Slack notification error:", err);
   }
+  return undefined;
 }
 
 // --------------- helpers for building slackMap from DB ---------------

@@ -23,9 +23,11 @@ export interface ITask extends Document {
   deadline?: Date;
   branch: string;
   pr: string;
+  prUrl: string;
   labels: string[];
   checklist: IChecklistItem[];
   cardNumber: number;
+  slackThreadTs: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -36,15 +38,17 @@ const TaskSchema = new Schema<ITask>(
     description: { type: String, default: "" },
     status: { type: String, default: "todo" },
     priority: { type: String, enum: ["low", "medium", "high"], default: "medium" },
-    projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true },
+    projectId: { type: Schema.Types.ObjectId, ref: "Project" },
     parentId: { type: Schema.Types.ObjectId, ref: "Task", default: null },
     assignees: { type: [String], default: [] },
     deadline: { type: Date },
     branch: { type: String, default: "" },
     pr: { type: String, default: "" },
+    prUrl: { type: String, default: "" },
     labels: { type: [String], default: [] },
     checklist: { type: [ChecklistItemSchema], default: [] },
     cardNumber: { type: Number, unique: true, sparse: true },
+    slackThreadTs: { type: String, default: "" },
   },
   { timestamps: true }
 );

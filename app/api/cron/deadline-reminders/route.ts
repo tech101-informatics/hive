@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
         assignees: task.assignees,
       },
       slackMap,
+      task.slackThreadTs || undefined,
     );
     sent++;
   }

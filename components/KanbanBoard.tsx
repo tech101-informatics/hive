@@ -9,6 +9,7 @@ import {
   Pencil,
   MessageSquare,
   GitBranch,
+  GitPullRequest,
   Tag,
   Hash,
 } from "lucide-react";
@@ -23,6 +24,7 @@ interface Task {
   deadline?: string;
   branch?: string;
   pr?: string;
+  prUrl?: string;
   labels?: string[];
   parentId?: string;
   commentCount?: number;
@@ -335,6 +337,17 @@ export function KanbanBoard({
                       <span className="text-xs text-text-secondary flex items-center gap-1">
                         <GitBranch size={10} />
                       </span>
+                    )}
+                    {task.prUrl && (
+                      <a
+                        href={task.prUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-brand hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <GitPullRequest size={10} />
+                      </a>
                     )}
                   </div>
                 </div>

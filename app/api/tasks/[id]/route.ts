@@ -79,6 +79,7 @@ export async function PUT(
 
   // Build slack map for tagging
   const slackMap = await buildSlackMap();
+  const threadTs = task.slackThreadTs || undefined;
 
   if (body.status && previousStatus !== body.status) {
     await sendSlackNotification({
@@ -91,7 +92,7 @@ export async function PUT(
       to: body.status,
       changedBy: userName,
       assignees: task.assignees || [],
-    }, slackMap);
+    }, slackMap, threadTs);
   }
 
   if (
@@ -108,7 +109,7 @@ export async function PUT(
         taskId: tid,
         assignees: newlyAdded,
         assignedBy: userName,
-      }, slackMap);
+      }, slackMap, threadTs);
     }
   }
 
@@ -130,7 +131,7 @@ export async function PUT(
         deadline: deadlineStr,
         assignees: task.assignees,
         changedBy: userName,
-      }, slackMap);
+      }, slackMap, threadTs);
     }
   }
 
@@ -146,7 +147,7 @@ export async function PUT(
       to: body.priority,
       changedBy: userName,
       assignees: task.assignees,
-    }, slackMap);
+    }, slackMap, threadTs);
   }
 
   // Labels changed — notify assignees
@@ -163,7 +164,7 @@ export async function PUT(
       removed,
       changedBy: userName,
       assignees: task.assignees,
-    }, slackMap);
+    }, slackMap, threadTs);
   }
 
   // Activity logging

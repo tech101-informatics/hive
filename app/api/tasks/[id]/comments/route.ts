@@ -60,7 +60,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       taskId: String(taskId),
       author: session!.user.name || "Unknown",
       assignees: task.assignees,
-    }, slackMap);
+    }, slackMap, task.slackThreadTs || undefined);
     await logActivity({
       taskId: String(taskId),
       projectId: String(task.projectId),

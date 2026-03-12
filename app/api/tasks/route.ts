@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
 
   const slackMap = await buildSlackMap();
 
-  await sendSlackNotification({
+  const slackThreadTs = await sendSlackNotification({
     type: "task_created",
     taskTitle: task.title,
     projectName,
@@ -75,6 +75,11 @@ export async function POST(req: NextRequest) {
     taskId: String(task._id),
     assignees: task.assignees?.length ? task.assignees : undefined,
   }, slackMap);
+
+  if (slackThreadTs) {
+    await Task.findByIdAndUpdate(task._id, { slackThreadTs });
+    task.slackThreadTs = slackThreadTs;
+  }
 
   await logActivity({
     taskId: String(task._id),
