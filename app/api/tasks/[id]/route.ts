@@ -90,6 +90,7 @@ export async function PUT(
       from: previousStatus,
       to: body.status,
       changedBy: userName,
+      assignees: task.assignees || [],
     }, slackMap);
   }
 
@@ -127,9 +128,42 @@ export async function PUT(
         projectId: pid,
         taskId: tid,
         deadline: deadlineStr,
-        assignees: task.assignees.filter((a: string) => a !== userName),
+        assignees: task.assignees,
+        changedBy: userName,
       }, slackMap);
     }
+  }
+
+  // Priority changed — notify assignees
+  if (body.priority && body.priority !== previousPriority && task.assignees?.length) {
+    await sendSlackNotification({
+      type: "task_priority_changed",
+      taskTitle: task.title,
+      projectName,
+      projectId: pid,
+      taskId: tid,
+      from: previousPriority,
+      to: body.priority,
+      changedBy: userName,
+      assignees: task.assignees,
+    }, slackMap);
+  }
+
+  // Labels changed — notify assignees
+  if (body.labels && JSON.stringify(body.labels) !== JSON.stringify(previousLabels) && task.assignees?.length) {
+    const added = body.labels.filter((l: string) => !previousLabels.includes(l));
+    const removed = previousLabels.filter((l: string) => !body.labels.includes(l));
+    await sendSlackNotification({
+      type: "task_labels_changed",
+      taskTitle: task.title,
+      projectName,
+      projectId: pid,
+      taskId: tid,
+      added,
+      removed,
+      changedBy: userName,
+      assignees: task.assignees,
+    }, slackMap);
   }
 
   // Activity logging

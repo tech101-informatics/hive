@@ -45,9 +45,9 @@ interface BoardColumn {
 }
 
 const PRIORITY_COLOR: Record<string, string> = {
-  high: "text-red-600 bg-red-50",
-  medium: "text-yellow-600 bg-yellow-50",
-  low: "text-green-600 bg-green-50",
+  high: "text-danger bg-danger-subtle",
+  medium: "text-warning bg-warning-subtle",
+  low: "text-success bg-success-subtle",
 };
 
 interface MemberInfo {
@@ -148,7 +148,12 @@ export function KanbanBoard({
     n ? `SP-${String(n).padStart(3, "0")}` : "";
 
   const initials = (name: string) =>
-    name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+    name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
 
   const getMemberAvatar = (name: string) =>
     members.find((m) => m.name === name)?.avatar;
@@ -165,12 +170,12 @@ export function KanbanBoard({
 
   return (
     <>
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      <div className="flex gap-4 overflow-x-auto pb-4 h-[calc(100vh-220px)]">
         {columns.map((col) => (
           <div
             key={col.slug}
-            className={`rounded-xl p-3 kanban-column flex-shrink-0 w-70 ${dragOverCol === col.slug ? "drag-over" : ""}`}
-            style={{ backgroundColor: col.color + "12" }}
+            className={`rounded-xl p-3 kanban-column flex-shrink-0 w-70 flex flex-col ${dragOverCol === col.slug ? "drag-over" : ""}`}
+            style={{ backgroundColor: col.color + "60" }}
             onDragOver={(e) => {
               e.preventDefault();
               setDragOverCol(col.slug);
@@ -179,32 +184,37 @@ export function KanbanBoard({
             onDrop={(e) => handleDrop(e, col.slug)}
           >
             <div
-              className="rounded-lg px-3 py-1.5 mb-3 flex items-center justify-between"
-              style={{ backgroundColor: col.color + "25", color: col.color }}
+              className="rounded-lg px-3 py-1.5 mb-3 flex items-center justify-between flex-shrink-0"
+              style={{ backgroundColor: col.color + "55" }}
             >
-              <span className="font-semibold text-sm">{col.label}</span>
-              <span className="text-xs font-bold opacity-70">
+              <span className="font-semibold text-sm text-text-primary">
+                {col.label}
+              </span>
+              <span
+                className="text-xs font-bold px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: col.color + "35", color: col.color }}
+              >
                 {tasksByStatus(col.slug).length}
               </span>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
               {tasksByStatus(col.slug).map((task) => (
                 <div
                   key={task._id}
                   draggable
                   onDragStart={(e) => handleDragStart(e, task._id)}
                   onDragEnd={() => setDraggingId(null)}
-                  className={`task-card bg-white rounded-lg p-3 shadow-sm border border-slate-100 hover:shadow-md transition-shadow ${draggingId === task._id ? "opacity-50" : ""}`}
+                  className={`task-card bg-bg-card rounded-lg p-3 border border-border hover:border-brand/50 hover:shadow-lg hover:shadow-brand/10 transition-all ${draggingId === task._id ? "opacity-40" : ""}`}
                 >
                   {task.cardNumber && (
-                    <span className="text-[10px] text-slate-400 font-mono mb-1 block">
+                    <span className="text-[10px] text-text-disabled font-mono mb-1 block">
                       {formatCardNumber(task.cardNumber)}
                     </span>
                   )}
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <p
-                      className="font-medium text-slate-800 text-sm leading-snug cursor-pointer hover:text-indigo-600 transition-colors flex-1"
+                      className="font-medium text-text-primary text-sm leading-snug cursor-pointer hover:text-brand transition-colors flex-1"
                       onClick={() => openCard(task)}
                     >
                       {task.title}
@@ -212,7 +222,7 @@ export function KanbanBoard({
                     <div className="flex items-center gap-0.5 flex-shrink-0">
                       <button
                         onClick={() => openCard(task)}
-                        className="p-1 text-slate-300 hover:text-indigo-500 transition-colors"
+                        className="p-1 text-text-disabled hover:text-brand transition-colors"
                         title="Edit card"
                       >
                         <Pencil size={12} />
@@ -220,7 +230,7 @@ export function KanbanBoard({
                       {isAdmin && (
                         <button
                           onClick={() => deleteTask(task._id)}
-                          className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+                          className="p-1 text-text-disabled hover:text-danger transition-colors"
                           title="Delete task"
                         >
                           <Trash2 size={13} />
@@ -231,7 +241,7 @@ export function KanbanBoard({
 
                   {task.description && (
                     <div
-                      className="text-slate-500 text-xs mb-2 line-clamp-2"
+                      className="text-text-secondary text-xs mb-2 line-clamp-2"
                       dangerouslySetInnerHTML={{ __html: task.description }}
                     ></div>
                   )}
@@ -241,7 +251,7 @@ export function KanbanBoard({
                       {task.labels.map((label) => (
                         <span
                           key={label}
-                          className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-medium"
+                          className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-subtle text-brand font-medium"
                         >
                           {label}
                         </span>
@@ -258,14 +268,14 @@ export function KanbanBoard({
                       const total = task.checklist.length;
                       return (
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
                             <div
-                              className={`h-full rounded-full transition-all ${done === total ? "bg-emerald-500" : "bg-indigo-500"}`}
+                              className={`h-full rounded-full transition-all ${done === total ? "bg-success" : "bg-brand"}`}
                               style={{ width: `${(done / total) * 100}%` }}
                             />
                           </div>
                           <span
-                            className={`text-[10px] font-medium whitespace-nowrap ${done === total ? "text-emerald-500" : "text-slate-400"}`}
+                            className={`text-[10px] font-medium whitespace-nowrap ${done === total ? "text-success" : "text-text-secondary"}`}
                           >
                             {done}/{total}
                           </span>
@@ -285,34 +295,44 @@ export function KanbanBoard({
                         {task.assignees.slice(0, 3).map((name) => {
                           const avatar = getMemberAvatar(name);
                           return avatar ? (
-                            <img key={name} src={avatar} alt={name} title={name} className="w-5 h-5 rounded-full border border-white flex-shrink-0" />
+                            <img
+                              key={name}
+                              src={avatar}
+                              alt={name}
+                              title={name}
+                              className="w-5 h-5 rounded-full border border-border flex-shrink-0"
+                            />
                           ) : (
-                            <span key={name} title={name} className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-[8px] font-bold border border-white flex-shrink-0">
+                            <span
+                              key={name}
+                              title={name}
+                              className="w-5 h-5 rounded-full bg-brand-subtle flex items-center justify-center text-brand text-[8px] font-bold border border-border flex-shrink-0"
+                            >
                               {initials(name)}
                             </span>
                           );
                         })}
                         {task.assignees.length > 3 && (
-                          <span className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-[8px] font-bold border border-white flex-shrink-0">
+                          <span className="w-5 h-5 rounded-full bg-border flex items-center justify-center text-text-secondary text-[8px] font-bold border border-border-subtle flex-shrink-0">
                             +{task.assignees.length - 3}
                           </span>
                         )}
                       </div>
                     )}
                     {task.deadline && (
-                      <span className="text-xs text-slate-500 flex items-center gap-1">
+                      <span className="text-xs text-text-secondary flex items-center gap-1">
                         <Calendar size={10} />
                         {new Date(task.deadline).toLocaleDateString()}
                       </span>
                     )}
                     {(task.commentCount ?? 0) > 0 && (
-                      <span className="text-xs text-slate-500 flex items-center gap-1">
+                      <span className="text-xs text-text-secondary flex items-center gap-1">
                         <MessageSquare size={10} />
                         {task.commentCount}
                       </span>
                     )}
                     {task.branch && (
-                      <span className="text-xs text-slate-500 flex items-center gap-1">
+                      <span className="text-xs text-text-secondary flex items-center gap-1">
                         <GitBranch size={10} />
                       </span>
                     )}
@@ -322,7 +342,7 @@ export function KanbanBoard({
             </div>
 
             {tasksByStatus(col.slug).length === 0 && (
-              <p className="text-center text-slate-400 text-xs py-4">
+              <p className="text-center text-gray-600 dark:text-white text-xs py-4 flex-shrink-0">
                 Drop cards here
               </p>
             )}

@@ -69,22 +69,22 @@ const MentionList = forwardRef<
 
   if (!props.items.length) {
     return (
-      <div className="bg-white rounded-lg shadow-lg border border-slate-200 px-3 py-2 text-sm text-slate-400">
+      <div className="bg-bg-card rounded-lg shadow-lg border border-border px-3 py-2 text-sm text-text-disabled">
         No results
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[160px] z-[70]">
+    <div className="bg-bg-card rounded-lg shadow-lg border border-border py-1 min-w-[160px] z-[70]">
       {props.items.map((item, index) => (
         <button
           key={item.id}
           onClick={() => selectItem(index)}
           className={`w-full text-left px-3 py-1.5 text-sm transition-colors ${
             index === selectedIndex
-              ? "bg-indigo-50 text-indigo-700"
-              : "text-slate-700 hover:bg-slate-50"
+              ? "bg-brand-subtle text-brand"
+              : "text-text-primary hover:bg-bg-surface"
           }`}
         >
           @{item.label}
@@ -211,8 +211,8 @@ export function RichTextEditor({
       attributes: {
         class:
           mode === "field"
-            ? "outline-none text-sm text-slate-700 min-h-[80px] max-h-[200px] overflow-y-auto px-3 pt-3 pb-1 prose prose-sm prose-slate max-w-none"
-            : "outline-none text-sm text-slate-700 min-h-[40px] max-h-[120px] overflow-y-auto px-3 pt-3 pb-1 prose prose-sm prose-slate max-w-none",
+            ? "outline-none text-sm text-text-primary min-h-[80px] max-h-[200px] overflow-y-auto px-3 pt-3 pb-1 prose prose-sm prose-invert max-w-none"
+            : "outline-none text-sm text-text-primary min-h-[40px] max-h-[120px] overflow-y-auto px-3 pt-3 pb-1 prose prose-sm prose-invert max-w-none",
       },
       ...(mode === "submit"
         ? {
@@ -253,14 +253,14 @@ export function RichTextEditor({
   const btnCls = (active: boolean) =>
     `p-1 rounded transition-colors ${
       active
-        ? "bg-indigo-100 text-indigo-700"
-        : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+        ? "bg-brand-subtle text-brand"
+        : "text-text-secondary hover:text-text-primary hover:bg-bg-card"
     }`;
 
   return (
-    <div className="bg-white ring-1 ring-slate-200 rounded-lg overflow-hidden focus-within:ring-1.5 focus-within:ring-slate-400 focus-within:border-slate-400">
+    <div className="bg-bg-card border border-border rounded-lg overflow-hidden focus-within:border-border">
       <EditorContent editor={editor} />
-      <div className="flex items-center justify-between px-2 pb-2 pt-1 border-t border-slate-100">
+      <div className="flex items-center justify-between px-2 pb-2 pt-1 border-t border-border bg-bg-surface">
         <div className="flex items-center gap-0.5">
           <button
             type="button"
@@ -283,7 +283,7 @@ export function RichTextEditor({
           >
             <UnderlineIcon size={14} />
           </button>
-          <div className="w-px h-4 bg-slate-200 mx-1" />
+          <div className="w-px h-4 bg-border mx-1" />
           <button
             type="button"
             onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -305,13 +305,13 @@ export function RichTextEditor({
           >
             <Code size={14} />
           </button>
-          <span className="text-[10px] text-slate-300 ml-2">@mention</span>
+          <span className="text-[10px] text-text-disabled ml-2">@mention</span>
         </div>
         {mode === "submit" && (
           <button
             onClick={handleSubmit}
             disabled={disabled || editor.isEmpty}
-            className="p-1.5 text-slate-400 hover:text-indigo-600 disabled:opacity-30 transition-colors"
+            className="p-1.5 bg-brand hover:bg-brand-hover text-white rounded disabled:opacity-30 transition-colors"
           >
             <Send size={16} />
           </button>

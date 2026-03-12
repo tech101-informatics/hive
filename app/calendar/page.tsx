@@ -147,7 +147,7 @@ export default function CalendarPage() {
   };
 
   if (loading) return (
-    <div className="flex justify-center py-20"><Loader2 className="animate-spin text-indigo-500" size={32} /></div>
+    <div className="flex justify-center py-20"><Loader2 className="animate-spin text-brand" size={32} /></div>
   );
 
   const tasksWithDeadlines = tasks.filter((t) => t.deadline).length;
@@ -161,36 +161,36 @@ export default function CalendarPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Calendar</h1>
-          <p className="text-slate-500 mt-1">{tasksWithDeadlines} card{tasksWithDeadlines !== 1 ? "s" : ""} with deadlines</p>
+          <h1 className="text-3xl font-bold text-text-primary">Calendar</h1>
+          <p className="text-text-secondary mt-1">{tasksWithDeadlines} card{tasksWithDeadlines !== 1 ? "s" : ""} with deadlines</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={goToToday}
-            className="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+            className="px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-card border border-border rounded-lg hover:bg-bg-surface transition-colors"
           >
             Today
           </button>
-          <div className="flex items-center bg-white border border-slate-200 rounded-lg">
-            <button onClick={prevMonth} className="p-1.5 hover:bg-slate-50 rounded-l-lg transition-colors">
-              <ChevronLeft size={18} className="text-slate-600" />
+          <div className="flex items-center bg-bg-card border border-border rounded-lg">
+            <button onClick={prevMonth} className="p-1.5 hover:bg-bg-surface rounded-l-lg transition-colors">
+              <ChevronLeft size={18} className="text-text-secondary" />
             </button>
-            <span className="px-4 py-1.5 text-sm font-semibold text-slate-800 min-w-[160px] text-center">
+            <span className="px-4 py-1.5 text-sm font-semibold text-text-primary min-w-[160px] text-center">
               {monthLabel}
             </span>
-            <button onClick={nextMonth} className="p-1.5 hover:bg-slate-50 rounded-r-lg transition-colors">
-              <ChevronRight size={18} className="text-slate-600" />
+            <button onClick={nextMonth} className="p-1.5 hover:bg-bg-surface rounded-r-lg transition-colors">
+              <ChevronRight size={18} className="text-text-secondary" />
             </button>
           </div>
         </div>
       </div>
 
       {/* Calendar grid */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-bg-card rounded-xl border border-border overflow-hidden">
         {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
+        <div className="grid grid-cols-7 border-b border-border bg-bg-surface">
           {DAYS.map((d) => (
-            <div key={d} className="px-2 py-2 text-xs font-semibold text-slate-500 text-center uppercase tracking-wider">
+            <div key={d} className="px-2 py-2 text-xs font-semibold text-text-secondary text-center uppercase tracking-wider">
               {d}
             </div>
           ))}
@@ -206,9 +206,9 @@ export default function CalendarPage() {
             return (
               <div
                 key={idx}
-                className={`min-h-[100px] border-b border-r border-slate-100 p-1.5 ${
-                  !cell.day ? "bg-slate-50/50" : isWeekend ? "bg-slate-50/30" : ""
-                }`}
+                className={`min-h-[100px] border-b border-r border-border-subtle p-1.5 relative ${
+                  !cell.day ? "bg-bg-base" : isWeekend ? "bg-bg-card" : "bg-bg-card"
+                } ${isToday ? "ring-2 ring-brand ring-inset" : ""}`}
               >
                 {cell.day && (
                   <>
@@ -216,14 +216,14 @@ export default function CalendarPage() {
                       <span
                         className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full ${
                           isToday
-                            ? "bg-indigo-600 text-white"
-                            : "text-slate-500"
+                            ? "bg-brand text-white"
+                            : "text-text-secondary"
                         }`}
                       >
                         {cell.day}
                       </span>
                       {dayTasks.length > 0 && (
-                        <span className="text-[10px] text-slate-400">{dayTasks.length}</span>
+                        <span className="text-[10px] text-text-disabled">{dayTasks.length}</span>
                       )}
                     </div>
                     <div className="space-y-0.5">
@@ -247,7 +247,7 @@ export default function CalendarPage() {
                         );
                       })}
                       {dayTasks.length > 3 && (
-                        <span className="text-[10px] text-slate-400 pl-1.5">
+                        <span className="text-[10px] text-text-disabled pl-1.5">
                           +{dayTasks.length - 3} more
                         </span>
                       )}

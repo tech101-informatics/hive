@@ -383,8 +383,8 @@ export function EditTaskModal({
     name,
     size = "w-5 h-5",
     textSize = "text-[9px]",
-    bg = "bg-indigo-100",
-    color = "text-indigo-700",
+    bg = "bg-brand-subtle",
+    color = "text-brand",
   }: {
     name: string;
     size?: string;
@@ -438,36 +438,36 @@ export function EditTaskModal({
 
       {/* Full overlay panel */}
       <div
-        className={`fixed inset-4 md:inset-8 lg:inset-12 bg-white rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-200 ${
+        className={`fixed inset-4 md:inset-8 lg:inset-12 bg-bg-surface rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-200 ${
           open ? "opacity-100 scale-100" : "opacity-0 scale-95"
         }`}
       >
         {/* Top bar */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-slate-50/80">
+        <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-bg-card">
           <div className="flex items-center gap-2 text-sm">
             <div className="relative" ref={copyMenuRef}>
               <button
                 onClick={() => setShowCopyMenu((p) => !p)}
-                className="flex items-center gap-1.5 pl-2 pr-1.5 py-1 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 pl-2 pr-1.5 py-1 rounded-lg hover:bg-bg-surface transition-colors cursor-pointer"
               >
-                <span className="font-mono font-semibold text-slate-700">
+                <span className="font-mono font-semibold text-text-secondary">
                   {cardNumberFormatted}
                 </span>
-                <ChevronDown size={12} className="text-slate-400" />
+                <ChevronDown size={12} className="text-text-disabled" />
               </button>
               {showCopyMenu && (
-                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-lg border border-slate-200 py-1 w-48 z-[60]">
+                <div className="absolute top-full left-0 mt-1 bg-bg-card rounded-lg shadow-lg border border-border py-1 w-48 z-[60]">
                   <button
                     onClick={() => {
                       copyToClipboard(cardNumberFormatted, "number");
                       setShowCopyMenu(false);
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-primary hover:bg-bg-surface transition-colors"
                   >
                     {copied === "number" ? (
-                      <Check size={14} className="text-emerald-500" />
+                      <Check size={14} className="text-success" />
                     ) : (
-                      <Copy size={14} className="text-slate-400" />
+                      <Copy size={14} className="text-text-disabled" />
                     )}
                     Copy id
                   </button>
@@ -476,35 +476,35 @@ export function EditTaskModal({
                       copyToClipboard(window.location.href, "link");
                       setShowCopyMenu(false);
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-primary hover:bg-bg-surface transition-colors"
                   >
                     {copied === "link" ? (
-                      <Check size={14} className="text-emerald-500" />
+                      <Check size={14} className="text-success" />
                     ) : (
-                      <Link size={14} className="text-slate-400" />
+                      <Link size={14} className="text-text-disabled" />
                     )}
                     Copy card URL
                   </button>
                 </div>
               )}
             </div>
-            <span className="font-medium">{form.title}</span>
+            <span className="font-medium text-text-primary">{form.title}</span>
           </div>
           <div className="flex items-center gap-2">
             {dirty && (
               <button
                 onClick={handleSubmit}
                 disabled={saving}
-                className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-medium transition-colors text-xs"
+                className="bg-brand text-white px-3 py-1.5 rounded-lg hover:bg-brand-hover disabled:opacity-50 font-medium transition-colors text-xs"
               >
                 {saving ? "Saving..." : "Save"}
               </button>
             )}
             <button
               onClick={handleClose}
-              className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+              className="p-2 hover:bg-bg-surface rounded-lg transition-colors"
             >
-              <X size={18} className="text-slate-500" />
+              <X size={18} className="text-text-disabled" />
             </button>
           </div>
         </div>
@@ -515,7 +515,7 @@ export function EditTaskModal({
           <div className="flex-1 overflow-y-auto p-8 pt-5">
             {/* Title */}
             <input
-              className="w-full text-2xl font-bold text-slate-900 bg-transparent border-0 outline-none placeholder:text-slate-300 mb-1"
+              className="w-full text-2xl font-bold text-text-primary bg-transparent border-0 outline-none placeholder:text-text-disabled mb-1"
               value={form.title}
               onChange={(e) => {
                 updateField("title", e.target.value);
@@ -523,38 +523,38 @@ export function EditTaskModal({
               }}
               placeholder="Card title..."
             />
-            {error && <p className="text-red-500 text-xs mb-2">{error}</p>}
+            {error && <p className="text-danger text-xs mb-2">{error}</p>}
 
             {/* On boards section */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl mb-6 overflow-hidden mt-4">
-              <div className="px-4 py-2 border-b border-slate-200 bg-slate-100/50">
-                <span className="text-sm font-semibold text-slate-700">
+            <div className="bg-bg-card border border-border rounded-xl mb-6 overflow-hidden mt-4">
+              <div className="px-4 py-2 border-b border-border bg-bg-surface/50">
+                <span className="text-sm font-semibold text-text-primary">
                   On boards (1)
                 </span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-slate-500">
+                    <tr className="text-left text-text-secondary">
                       <th className="px-4 py-1 font-medium">Parent card</th>
                       <th className="px-4 py-1 font-medium">Board</th>
                       <th className="px-4 py-1 font-medium">Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-t border-slate-100">
+                    <tr className="border-t border-border-subtle">
                       <td className="px-4 py-1">
                         {parentCard ? (
-                          <span className="inline-flex items-center gap-1 bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-xs font-medium">
+                          <span className="inline-flex items-center gap-1 bg-bg-surface text-text-primary px-2 py-0.5 rounded text-xs font-medium">
                             <Link2 size={10} />
                             {parentCard.title}
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-xs">None</span>
+                          <span className="text-text-disabled text-xs">None</span>
                         )}
                       </td>
                       <td className="px-4 py-1">
-                        <span className="text-slate-700 font-medium">
+                        <span className="text-text-primary font-medium">
                           {boardName || "—"}
                         </span>
                       </td>
@@ -574,8 +574,8 @@ export function EditTaskModal({
             {showFields && (
               <div className="space-y-0">
                 {/* Priority */}
-                <div className="flex items-center py-3 border-t border-slate-100">
-                  <div className="flex items-center gap-2.5 w-40 text-sm text-slate-500">
+                <div className="flex items-center py-3 border-t border-border-subtle">
+                  <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary">
                     <Flag size={15} />
                     <span>Priority</span>
                   </div>
@@ -589,7 +589,7 @@ export function EditTaskModal({
                       <ChevronDown size={10} className="inline ml-1" />
                     </button>
                     {showPriorityDropdown && (
-                      <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-[60] w-40 py-1">
+                      <div className="absolute top-full left-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-40 py-1">
                         {PRIORITY_OPTIONS.map((p) => (
                           <button
                             key={p.value}
@@ -604,8 +604,8 @@ export function EditTaskModal({
                             }}
                             className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors text-left ${
                               form.priority === p.value
-                                ? "bg-slate-50"
-                                : "hover:bg-slate-50"
+                                ? "bg-bg-surface"
+                                : "hover:bg-bg-surface"
                             }`}
                           >
                             <span
@@ -621,8 +621,8 @@ export function EditTaskModal({
                 </div>
 
                 {/* Assignees */}
-                <div className="flex items-start py-3 border-t border-slate-100">
-                  <div className="flex items-center gap-2.5 w-40 text-sm text-slate-500 pt-0.5">
+                <div className="flex items-start py-3 border-t border-border-subtle">
+                  <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary pt-0.5">
                     <User size={15} />
                     <span>Assignees</span>
                   </div>
@@ -631,13 +631,13 @@ export function EditTaskModal({
                       {form.assignees.map((name) => (
                         <span
                           key={name}
-                          className="inline-flex items-center gap-1 text-xs p-1 rounded-full bg-indigo-50 text-indigo-600 font-medium"
+                          className="inline-flex items-center gap-1 text-xs p-1 rounded-full bg-brand-subtle text-brand font-medium"
                         >
                           <Avatar
                             name={name}
                             size="w-5 h-5"
                             textSize="text-xs"
-                            bg="bg-indigo-200"
+                            bg="bg-brand-subtle"
                           />
                           {name}
                           <button
@@ -652,7 +652,7 @@ export function EditTaskModal({
                               }));
                               autoSave({ assignees: updated });
                             }}
-                            className="hover:text-red-500 transition-colors"
+                            className="hover:text-danger transition-colors"
                           >
                             <X size={10} />
                           </button>
@@ -662,12 +662,12 @@ export function EditTaskModal({
                     <button
                       type="button"
                       onClick={() => setShowAssigneeDropdown((p) => !p)}
-                      className="text-sm text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1"
+                      className="text-sm text-text-disabled hover:text-brand transition-colors flex items-center gap-1"
                     >
                       <Plus size={12} /> Add assignee
                     </button>
                     {showAssigneeDropdown && (
-                      <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-[60] w-56 max-h-48 overflow-y-auto py-1">
+                      <div className="absolute top-full left-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-56 max-h-48 overflow-y-auto py-1">
                         {/* Assign myself option */}
                         {session?.user?.name &&
                           !form.assignees.includes(session.user.name) &&
@@ -688,12 +688,12 @@ export function EditTaskModal({
                                 autoSave({ assignees: updated });
                                 setShowAssigneeDropdown(false);
                               }}
-                              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-indigo-600 hover:bg-indigo-50 transition-colors text-left border-b border-slate-100"
+                              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-brand hover:bg-bg-surface transition-colors text-left border-b border-border"
                             >
                               <Avatar
                                 name={session.user.name}
                                 size="w-5 h-5"
-                                bg="bg-indigo-500"
+                                bg="bg-brand"
                                 color="text-white"
                               />
                               {session.user.name} (me)
@@ -714,7 +714,7 @@ export function EditTaskModal({
                                 autoSave({ assignees: updated });
                                 setShowAssigneeDropdown(false);
                               }}
-                              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-slate-700 hover:bg-indigo-50 transition-colors text-left"
+                              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-surface transition-colors text-left"
                             >
                               <Avatar name={m.name} />
                               {m.name}
@@ -727,7 +727,7 @@ export function EditTaskModal({
                             !form.assignees.includes(session.user.name) &&
                             !members.some((m) => m.name === session.user?.name)
                           ) && (
-                            <p className="px-3 py-2 text-xs text-slate-400">
+                            <p className="px-3 py-2 text-xs text-text-disabled">
                               All members assigned
                             </p>
                           )}
@@ -737,27 +737,30 @@ export function EditTaskModal({
                 </div>
 
                 {/* Deadline */}
-                <div className="flex items-center py-3 border-t border-slate-100">
-                  <div className="flex items-center gap-2.5 w-40 text-sm text-slate-500">
+                <div className="flex items-center py-3 border-t border-border-subtle">
+                  <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary">
                     <Calendar size={15} />
                     <span>Deadline</span>
                   </div>
                   <input
                     type="date"
-                    className="text-sm bg-transparent border-0 outline-none cursor-pointer font-medium text-slate-800"
+                    className="text-sm bg-transparent border-0 outline-none cursor-pointer font-medium text-text-primary"
                     value={form.deadline}
-                    onChange={(e) => updateField("deadline", e.target.value)}
+                    onChange={(e) => {
+                      updateField("deadline", e.target.value);
+                      autoSave({ deadline: e.target.value || undefined });
+                    }}
                   />
                 </div>
 
                 {/* Parent card */}
-                <div className="flex items-center py-3 border-t border-slate-100">
-                  <div className="flex items-center gap-2.5 w-40 text-sm text-slate-500">
+                <div className="flex items-center py-3 border-t border-border-subtle">
+                  <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary">
                     <Link2 size={15} />
                     <span>Parent Card</span>
                   </div>
                   <select
-                    className="text-sm bg-transparent border-0 outline-none cursor-pointer font-medium text-slate-800"
+                    className="text-sm bg-transparent border-0 outline-none cursor-pointer font-medium text-text-primary"
                     value={form.parentId}
                     onChange={(e) => updateField("parentId", e.target.value)}
                   >
@@ -771,14 +774,14 @@ export function EditTaskModal({
                 </div>
 
                 {/* Branch */}
-                <div className="flex items-center py-3 border-t border-slate-100">
-                  <div className="flex items-center gap-2.5 w-40 text-sm text-slate-500">
+                <div className="flex items-center py-3 border-t border-border-subtle">
+                  <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary">
                     <GitBranch size={15} />
                     <span>Branch</span>
                   </div>
                   <input
                     type="text"
-                    className="text-sm bg-transparent border-0 outline-none font-medium text-slate-800 flex-1 placeholder:text-slate-300"
+                    className="text-sm bg-transparent border-0 outline-none font-medium text-text-primary flex-1 placeholder:text-text-disabled"
                     value={form.branch}
                     onChange={(e) => updateField("branch", e.target.value)}
                     placeholder="e.g. feature/my-branch"
@@ -786,14 +789,14 @@ export function EditTaskModal({
                 </div>
 
                 {/* PR */}
-                <div className="flex items-center py-3 border-t border-slate-100">
-                  <div className="flex items-center gap-2.5 w-40 text-sm text-slate-500">
+                <div className="flex items-center py-3 border-t border-border-subtle">
+                  <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary">
                     <GitPullRequest size={15} />
                     <span>Pull Request</span>
                   </div>
                   <input
                     type="text"
-                    className="text-sm bg-transparent border-0 outline-none font-medium text-slate-800 flex-1 placeholder:text-slate-300"
+                    className="text-sm bg-transparent border-0 outline-none font-medium text-text-primary flex-1 placeholder:text-text-disabled"
                     value={form.pr}
                     onChange={(e) => updateField("pr", e.target.value)}
                     placeholder="e.g. https://github.com/org/repo/pull/123"
@@ -801,8 +804,8 @@ export function EditTaskModal({
                 </div>
 
                 {/* Labels */}
-                <div className="flex items-start py-3 border-t border-b border-slate-100">
-                  <div className="flex items-center gap-2.5 w-40 text-sm text-slate-500 pt-0.5">
+                <div className="flex items-start py-3 border-t border-b border-border-subtle">
+                  <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary pt-0.5">
                     <Tag size={15} />
                     <span>Labels</span>
                   </div>
@@ -850,19 +853,19 @@ export function EditTaskModal({
                     <button
                       type="button"
                       onClick={() => setShowLabelDropdown((p) => !p)}
-                      className="text-sm text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1"
+                      className="text-sm text-text-disabled hover:text-brand transition-colors flex items-center gap-1"
                     >
                       <Plus size={12} /> Add label
                     </button>
                     {showLabelDropdown && (
-                      <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-[60] w-64 max-h-72 flex flex-col">
-                        <div className="px-3 py-2 border-b border-slate-100">
+                      <div className="absolute top-full left-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-64 max-h-72 flex flex-col">
+                        <div className="px-3 py-2 border-b border-border">
                           <input
                             type="text"
                             value={labelSearch}
                             onChange={(e) => setLabelSearch(e.target.value)}
                             placeholder="Search labels..."
-                            className="w-full text-sm border border-slate-200 rounded px-2 py-1 outline-none focus:border-slate-400"
+                            className="w-full text-sm bg-bg-card border border-border text-text-primary rounded px-2 py-1 outline-none focus:border-border placeholder:text-text-disabled"
                             autoFocus
                           />
                         </div>
@@ -877,7 +880,7 @@ export function EditTaskModal({
                               );
                             if (filtered.length === 0) {
                               return (
-                                <p className="px-3 py-3 text-xs text-slate-400 text-center">
+                                <p className="px-3 py-3 text-xs text-text-disabled text-center">
                                   No labels found
                                 </p>
                               );
@@ -891,7 +894,7 @@ export function EditTaskModal({
                             return Object.entries(grouped).map(
                               ([category, catLabels]) => (
                                 <div key={category}>
-                                  <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                                  <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-text-disabled uppercase tracking-wider">
                                     {category}
                                   </p>
                                   {catLabels.map((t) => (
@@ -910,7 +913,7 @@ export function EditTaskModal({
                                         autoSave({ labels: updated });
                                         setLabelSearch("");
                                       }}
-                                      className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors text-left"
+                                      className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-surface transition-colors text-left"
                                     >
                                       <span
                                         className="w-2.5 h-2.5 rounded-full flex-shrink-0"
@@ -933,11 +936,11 @@ export function EditTaskModal({
 
             {/* Separator toggle */}
             <div className="flex items-center gap-3 mt-6">
-              <div className="flex-1 h-px bg-slate-200" />
+              <div className="flex-1 h-px bg-border" />
               <button
                 type="button"
                 onClick={() => setShowFields((p) => !p)}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-200 text-xs text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors whitespace-nowrap"
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-border text-xs text-text-secondary hover:bg-bg-card transition-colors whitespace-nowrap"
               >
                 {showFields ? "Hide" : "Show"} fields
                 <ChevronsUpDown size={12} />
@@ -958,12 +961,12 @@ export function EditTaskModal({
             {/* Checklist */}
             <div className="mt-6 mb-8">
               <div className="flex items-center gap-2 mb-3">
-                <CheckSquare size={16} className="text-slate-500" />
-                <h3 className="text-sm font-semibold text-slate-700">
+                <CheckSquare size={16} className="text-text-secondary" />
+                <h3 className="text-sm font-semibold text-text-primary">
                   Subtasks
                 </h3>
                 {form.checklist.length > 0 && (
-                  <span className="text-xs text-slate-400 font-medium">
+                  <span className="text-xs text-text-disabled font-medium">
                     {form.checklist.filter((i) => i.completed).length}/
                     {form.checklist.length}
                   </span>
@@ -976,14 +979,14 @@ export function EditTaskModal({
                   const total = form.checklist.length;
                   return (
                     <div className="flex items-center gap-2 mb-3">
-                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className="flex-1 h-1.5 bg-border-subtle rounded-full overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all ${done === total ? "bg-emerald-500" : "bg-indigo-500"}`}
+                          className={`h-full rounded-full transition-all ${done === total ? "bg-success" : "bg-brand"}`}
                           style={{ width: `${(done / total) * 100}%` }}
                         />
                       </div>
                       <span
-                        className={`text-xs font-medium ${done === total ? "text-emerald-500" : "text-slate-400"}`}
+                        className={`text-xs font-medium ${done === total ? "text-success" : "text-text-disabled"}`}
                       >
                         {Math.round((done / total) * 100)}%
                       </span>
@@ -997,7 +1000,7 @@ export function EditTaskModal({
                   .map((item, idx) => (
                     <div
                       key={item._id || idx}
-                      className="flex items-center gap-2 group py-1 px-2 rounded-lg hover:bg-slate-50 transition-colors"
+                      className="flex items-center gap-2 group py-1 px-2 rounded-lg hover:bg-bg-card transition-colors"
                     >
                       <input
                         type="checkbox"
@@ -1022,7 +1025,7 @@ export function EditTaskModal({
                             }),
                           }).then(() => onUpdated());
                         }}
-                        className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        className="w-4 h-4 rounded border-border text-brand focus:ring-brand cursor-pointer"
                       />
                       <input
                         type="text"
@@ -1038,8 +1041,8 @@ export function EditTaskModal({
                         }}
                         className={`flex-1 text-sm bg-transparent border-0 outline-none ${
                           item.completed
-                            ? "line-through text-slate-400"
-                            : "text-slate-700"
+                            ? "line-through text-text-disabled"
+                            : "text-text-primary"
                         }`}
                       />
                       <button
@@ -1052,7 +1055,7 @@ export function EditTaskModal({
                           }));
                           setDirty(true);
                         }}
-                        className="p-1 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                        className="p-1 text-text-disabled hover:text-danger transition-colors opacity-0 group-hover:opacity-100"
                       >
                         <Trash2 size={12} />
                       </button>
@@ -1061,7 +1064,7 @@ export function EditTaskModal({
               </div>
 
               <div className="flex items-center gap-2 mt-2">
-                <Plus size={16} className="text-slate-400" />
+                <Plus size={16} className="text-text-disabled" />
                 <input
                   type="text"
                   value={newChecklistItem}
@@ -1085,7 +1088,7 @@ export function EditTaskModal({
                     }
                   }}
                   placeholder="Add an item..."
-                  className="flex-1 text-sm bg-transparent border-0 outline-none placeholder:text-slate-300 text-slate-700"
+                  className="flex-1 text-sm bg-transparent border-0 outline-none placeholder:text-text-disabled text-text-primary"
                 />
               </div>
             </div>
@@ -1094,12 +1097,12 @@ export function EditTaskModal({
             <div className="mt-6 mb-8">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Clock size={16} className="text-slate-500" />
-                  <h3 className="text-sm font-semibold text-slate-700">
+                  <Clock size={16} className="text-text-secondary" />
+                  <h3 className="text-sm font-semibold text-text-primary">
                     Time Tracked
                   </h3>
                   {totalMinutes > 0 && (
-                    <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full font-medium">
+                    <span className="text-xs bg-brand-subtle text-brand px-2 py-0.5 rounded-full font-medium">
                       {formatDuration(totalMinutes)}
                     </span>
                   )}
@@ -1107,17 +1110,17 @@ export function EditTaskModal({
                 <button
                   type="button"
                   onClick={() => setShowTimeForm((p) => !p)}
-                  className="text-xs text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1"
+                  className="text-xs text-brand hover:text-brand-hover font-medium flex items-center gap-1"
                 >
                   <Plus size={12} /> Log time
                 </button>
               </div>
 
               {showTimeForm && (
-                <div className="bg-slate-50 rounded-lg p-3 mb-3 space-y-2">
+                <div className="bg-bg-card rounded-lg p-3 mb-3 space-y-2">
                   <div className="flex gap-2">
                     <div className="flex-1">
-                      <label className="block text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1">
+                      <label className="block text-[10px] uppercase tracking-wider text-text-disabled font-semibold mb-1">
                         Duration (minutes)
                       </label>
                       <input
@@ -1126,18 +1129,18 @@ export function EditTaskModal({
                         value={timeMinutes}
                         onChange={(e) => setTimeMinutes(e.target.value)}
                         placeholder="30"
-                        className="w-full text-sm border border-slate-200 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+                        className="w-full text-sm border border-border rounded-md px-2 py-1.5 bg-bg-card text-text-primary focus:outline-none focus:ring-1 focus:ring-border"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1">
+                      <label className="block text-[10px] uppercase tracking-wider text-text-disabled font-semibold mb-1">
                         Date
                       </label>
                       <input
                         type="date"
                         value={timeDate}
                         onChange={(e) => setTimeDate(e.target.value)}
-                        className="text-sm border border-slate-200 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+                        className="text-sm border border-border rounded-md px-2 py-1.5 bg-bg-card text-text-primary focus:outline-none focus:ring-1 focus:ring-border"
                       />
                     </div>
                   </div>
@@ -1146,20 +1149,20 @@ export function EditTaskModal({
                     value={timeDesc}
                     onChange={(e) => setTimeDesc(e.target.value)}
                     placeholder="What did you work on?"
-                    className="w-full text-sm border border-slate-200 rounded-md px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-slate-400"
+                    className="w-full text-sm border border-border rounded-md px-2 py-1.5 bg-bg-card text-text-primary focus:outline-none focus:ring-1 focus:ring-border"
                   />
                   <div className="flex justify-end gap-2">
                     <button
                       type="button"
                       onClick={() => setShowTimeForm(false)}
-                      className="px-3 py-1 text-xs text-slate-500 hover:text-slate-700 transition-colors"
+                      className="px-3 py-1 text-xs text-text-secondary hover:text-text-primary transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       type="button"
                       onClick={handleAddTimeLog}
-                      className="px-3 py-1 text-xs bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-medium transition-colors"
+                      className="px-3 py-1 text-xs bg-brand text-white rounded-md hover:bg-brand-hover font-medium transition-colors"
                     >
                       Save
                     </button>
@@ -1172,26 +1175,26 @@ export function EditTaskModal({
                   {timeLogs.map((log) => (
                     <div
                       key={log._id}
-                      className="flex items-start gap-2 group py-1.5 px-2 rounded-lg hover:bg-slate-50 transition-colors"
+                      className="flex items-start gap-2 group py-1.5 px-2 rounded-lg hover:bg-bg-card transition-colors"
                     >
                       <Avatar
                         name={log.user}
                         size="w-8 h-8"
                         textSize="text-[8px]"
-                        bg="bg-slate-100"
-                        color="text-slate-500"
+                        bg="bg-bg-card"
+                        color="text-text-disabled"
                       />
                       <div className="leading-normal -mt-1">
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-text-disabled">
                           {log.user} &middot;&nbsp;
                           {new Date(log.date).toLocaleDateString()}
                         </span>
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-indigo-600">
+                          <span className="text-sm font-medium text-brand">
                             {formatDuration(log.minutes)}
                           </span>
                           {log.description && (
-                            <span className="text-xs text-slate-500 truncate">
+                            <span className="text-xs text-text-secondary truncate">
                               {log.description}
                             </span>
                           )}
@@ -1201,7 +1204,7 @@ export function EditTaskModal({
                         session?.user?.role === "admin") && (
                         <button
                           onClick={() => handleDeleteTimeLog(log._id)}
-                          className="p-1 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                          className="p-1 text-text-disabled hover:text-danger transition-colors opacity-0 group-hover:opacity-100"
                         >
                           <Trash2 size={12} />
                         </button>
@@ -1210,28 +1213,28 @@ export function EditTaskModal({
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-slate-400">No time logged yet.</p>
+                <p className="text-xs text-text-disabled">No time logged yet.</p>
               )}
             </div>
           </div>
 
           {/* RIGHT — Comments & Activity panel */}
-          <div className="w-[380px] flex-shrink-0 flex flex-col border-l border-slate-200 bg-slate-50/50">
+          <div className="w-[380px] flex-shrink-0 flex flex-col border-l border-border bg-bg-surface">
             {/* Tabs */}
-            <div className="flex border-b border-slate-200">
+            <div className="flex border-b border-border">
               <button
                 type="button"
                 onClick={() => setRightTab("comments")}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors ${
                   rightTab === "comments"
-                    ? "text-indigo-700 border-b-2 border-indigo-600"
-                    : "text-slate-500 hover:text-slate-700"
+                    ? "text-brand border-b-2 border-brand"
+                    : "text-text-secondary hover:text-text-primary"
                 }`}
               >
                 <MessageSquare size={14} />
                 Comments
                 {comments.length > 0 && (
-                  <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full font-medium">
+                  <span className="text-[10px] bg-border text-text-secondary px-1.5 py-0.5 rounded-full font-medium">
                     {comments.length}
                   </span>
                 )}
@@ -1244,8 +1247,8 @@ export function EditTaskModal({
                 }}
                 className={`flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors ${
                   rightTab === "activity"
-                    ? "text-indigo-700 border-b-2 border-indigo-600"
-                    : "text-slate-500 hover:text-slate-700"
+                    ? "text-brand border-b-2 border-brand"
+                    : "text-text-secondary hover:text-text-primary"
                 }`}
               >
                 <History size={14} />
@@ -1268,24 +1271,24 @@ export function EditTaskModal({
                           />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-slate-800">
+                              <span className="text-sm font-medium text-text-primary">
                                 {c.author}
                               </span>
-                              <span className="text-xs text-slate-400">
+                              <span className="text-xs text-text-disabled">
                                 {timeAgo(c.createdAt)}
                               </span>
                               {(c.authorEmail === session?.user?.email ||
                                 session?.user?.role === "admin") && (
                                 <button
                                   onClick={() => handleDeleteComment(c._id)}
-                                  className="ml-auto p-1 text-slate-300 hover:text-red-500 transition-colors rounded"
+                                  className="ml-auto p-1 text-text-disabled hover:text-danger transition-colors rounded"
                                 >
                                   <Trash2 size={13} />
                                 </button>
                               )}
                             </div>
                             <div
-                              className="text-sm text-slate-600 mt-1 prose prose-sm prose-slate max-w-none break-words [&_p]:my-0.5 [&_ul]:my-0.5 [&_ol]:my-0.5"
+                              className="text-sm text-text-secondary mt-1 prose prose-sm prose-invert max-w-none break-words [&_p]:my-0.5 [&_ul]:my-0.5 [&_ol]:my-0.5"
                               dangerouslySetInnerHTML={{ __html: c.content }}
                             />
                           </div>
@@ -1295,7 +1298,7 @@ export function EditTaskModal({
                     </div>
                   ) : (
                     <div className="flex items-center justify-center h-full">
-                      <p className="text-sm text-slate-400">
+                      <p className="text-sm text-text-disabled">
                         Be the first one to add a comment.
                       </p>
                     </div>
@@ -1303,7 +1306,7 @@ export function EditTaskModal({
                 </div>
 
                 {/* Comment input */}
-                <div className="border-t border-slate-200 p-4">
+                <div className="border-t border-border p-4">
                   <RichTextEditor
                     onSubmit={handleAddComment}
                     disabled={postingComment}
@@ -1317,7 +1320,7 @@ export function EditTaskModal({
               <div className="flex-1 overflow-y-auto px-5 py-4">
                 {activities.length > 0 ? (
                   <div className="relative">
-                    <div className="absolute left-[15px] top-2 bottom-2 w-px bg-slate-200" />
+                    <div className="absolute left-[15px] top-2 bottom-2 w-px bg-border" />
                     <div className="space-y-4">
                       {activities.map((a) => (
                         <div key={a._id} className="flex gap-3 relative">
@@ -1326,18 +1329,18 @@ export function EditTaskModal({
                               name={a.user}
                               size="w-8 h-8"
                               textSize="text-[9px]"
-                              bg="bg-slate-100"
-                              color="text-slate-500"
+                              bg="bg-bg-card"
+                              color="text-text-disabled"
                             />
                           </div>
                           <div className="flex-1 min-w-0 pt-1">
-                            <p className="text-sm text-slate-700">
+                            <p className="text-sm text-text-primary">
                               <span className="font-medium">{a.user}</span>{" "}
-                              <span className="text-slate-500">
+                              <span className="text-text-secondary">
                                 {a.details}
                               </span>
                             </p>
-                            <span className="text-[10px] text-slate-400">
+                            <span className="text-[10px] text-text-disabled">
                               {timeAgo(a.createdAt)}
                             </span>
                           </div>
@@ -1347,7 +1350,7 @@ export function EditTaskModal({
                   </div>
                 ) : (
                   <div className="flex items-center justify-center h-full">
-                    <p className="text-sm text-slate-400">No activity yet.</p>
+                    <p className="text-sm text-text-disabled">No activity yet.</p>
                   </div>
                 )}
               </div>

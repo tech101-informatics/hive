@@ -1,17 +1,171 @@
 @import "tailwindcss";
 
-@theme {
-  --spacing-70: 17.5rem;
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─── Runtime CSS Variables (dark default) ──────────── */
+:root {
+  --hive-brand: #395bea;
+  --hive-brand-hover: #2d4fd4;
+  --hive-brand-subtle: #395bea20;
+
+  --hive-bg-base: #111214;
+  --hive-bg-surface: #1a1d21;
+  --hive-bg-card: #222529;
+
+  --hive-border: #32363d;
+  --hive-border-subtle: #26292f;
+
+  --hive-text-primary: #f0f1f3;
+  --hive-text-secondary: #8b909a;
+  --hive-text-disabled: #4e535c;
+
+  --hive-success: #34d399;
+  --hive-success-subtle: #34d39920;
+  --hive-warning: #fbbf24;
+  --hive-warning-subtle: #fbbf2420;
+  --hive-danger: #f87171;
+  --hive-danger-subtle: #f8717120;
+
+  /* Kanban column tints */
+  --hive-col-todo: #1a1d21;
+  --hive-col-progress: #0f1829;
+  --hive-col-review: #160f26;
+  --hive-col-done: #0a1f18;
+  --hive-col-badge-progress: #1e2d5e;
+  --hive-col-badge-review: #2d1f4e;
+  --hive-col-badge-done: #1a3d30;
 }
 
+/* ─── Light Theme Override ──────────────────────────── */
+[data-theme="light"] {
+  --hive-brand: #395bea;
+  --hive-brand-hover: #2d4fd4;
+  --hive-brand-subtle: #395bea12;
+
+  --hive-bg-base: #f5f6fa;
+  --hive-bg-surface: #ffffff;
+  --hive-bg-card: #ffffff;
+
+  --hive-border: #e2e4ea;
+  --hive-border-subtle: #eceef4;
+
+  --hive-text-primary: #0f1117;
+  --hive-text-secondary: #5c6070;
+  --hive-text-disabled: #adb2c0;
+
+  --hive-success: #059669;
+  --hive-success-subtle: #05966915;
+  --hive-warning: #d97706;
+  --hive-warning-subtle: #d9770615;
+  --hive-danger: #dc2626;
+  --hive-danger-subtle: #dc262615;
+
+  /* Kanban column tints */
+  --hive-col-todo: #f0f1f4;
+  --hive-col-progress: #eef2ff;
+  --hive-col-review: #f3f0ff;
+  --hive-col-done: #ecfdf5;
+  --hive-col-badge-progress: #dbeafe;
+  --hive-col-badge-review: #ede9fe;
+  --hive-col-badge-done: #d1fae5;
+}
+
+/* ─── Tailwind Theme (references runtime vars) ──────── */
+@theme {
+  --spacing-70: 17.5rem;
+
+  --color-brand: var(--hive-brand);
+  --color-brand-hover: var(--hive-brand-hover);
+  --color-brand-subtle: var(--hive-brand-subtle);
+
+  --color-bg-base: var(--hive-bg-base);
+  --color-bg-surface: var(--hive-bg-surface);
+  --color-bg-card: var(--hive-bg-card);
+
+  --color-border: var(--hive-border);
+  --color-border-subtle: var(--hive-border-subtle);
+
+  --color-text-primary: var(--hive-text-primary);
+  --color-text-secondary: var(--hive-text-secondary);
+  --color-text-disabled: var(--hive-text-disabled);
+
+  --color-success: var(--hive-success);
+  --color-success-subtle: var(--hive-success-subtle);
+  --color-warning: var(--hive-warning);
+  --color-warning-subtle: var(--hive-warning-subtle);
+  --color-danger: var(--hive-danger);
+  --color-danger-subtle: var(--hive-danger-subtle);
+
+  --color-col-todo: var(--hive-col-todo);
+  --color-col-progress: var(--hive-col-progress);
+  --color-col-review: var(--hive-col-review);
+  --color-col-done: var(--hive-col-done);
+  --color-col-badge-progress: var(--hive-col-badge-progress);
+  --color-col-badge-review: var(--hive-col-badge-review);
+  --color-col-badge-done: var(--hive-col-badge-done);
+}
+
+/* ─── Base ──────────────────────────────────────────── */
 * {
   box-sizing: border-box;
 }
 
 body {
-  background: #f8fafc;
+  background: var(--hive-bg-base);
+  color: var(--hive-text-primary);
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
+/* ─── Scrollbar ─────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--hive-bg-surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--hive-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--hive-text-secondary);
+}
+
+/* ─── Autofill ──────────────────────────────────────── */
+input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0px 1000px var(--hive-bg-card) inset !important;
+  -webkit-text-fill-color: var(--hive-text-primary) !important;
+}
+
+/* ─── Reusable Input ────────────────────────────────── */
+.input-theme {
+  background: var(--hive-bg-card);
+  border: 1px solid var(--hive-border);
+  color: var(--hive-text-primary);
+  border-radius: 8px;
+  padding: 8px 12px;
+  width: 100%;
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.input-theme::placeholder {
+  color: var(--hive-text-disabled);
+}
+.input-theme:focus {
+  border-color: var(--hive-brand);
+  box-shadow: 0 0 0 3px var(--hive-brand-subtle);
+}
+select.input-theme option {
+  background: var(--hive-bg-card);
+  color: var(--hive-text-primary);
+}
+
+/* ─── Kanban ────────────────────────────────────────── */
 .kanban-column {
   min-height: 200px;
 }
@@ -22,15 +176,49 @@ body {
   cursor: grabbing;
 }
 .drag-over {
-  background: #e0e7ff !important;
-  border: 2px dashed #6366f1 !important;
+  background: color-mix(in srgb, var(--hive-brand) 12%, var(--hive-bg-surface)) !important;
+  border: 2px dashed var(--hive-brand) !important;
+  box-shadow: inset 0 0 20px color-mix(in srgb, var(--hive-brand) 8%, transparent);
 }
 
-/* Tiptap editor */
+/* ─── Card shadows ─────────────────────────────────── */
+.task-card {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+.task-card:hover {
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 0 0 1px color-mix(in srgb, var(--hive-brand) 30%, transparent);
+}
+
+[data-theme="light"] .task-card {
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.04);
+}
+[data-theme="light"] .task-card:hover {
+  box-shadow:
+    0 4px 12px rgba(57, 91, 234, 0.1),
+    0 0 0 1px rgba(57, 91, 234, 0.2);
+}
+
+/* ─── Filter active states ─────────────────────────── */
+.filter-btn-active {
+  background: color-mix(in srgb, var(--hive-brand) 18%, var(--hive-bg-card));
+  border-color: var(--hive-brand);
+  color: var(--hive-brand);
+}
+.filter-item-active {
+  background: color-mix(in srgb, var(--hive-brand) 15%, var(--hive-bg-card));
+  color: var(--hive-brand);
+  font-weight: 500;
+}
+
+/* ─── Tiptap editor ─────────────────────────────────── */
 .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: #94a3b8;
+  color: var(--hive-text-disabled);
   pointer-events: none;
   height: 0;
 }
@@ -43,7 +231,9 @@ body {
   padding-left: 1.2em;
 }
 .tiptap code {
-  background: #f1f5f9;
+  background: var(--hive-bg-card);
+  border: 1px solid var(--hive-border-subtle);
+  color: var(--hive-text-primary);
   padding: 0.15em 0.3em;
   border-radius: 3px;
   font-size: 0.9em;
@@ -52,8 +242,8 @@ body {
   margin: 0.15em 0;
 }
 .tiptap .mention {
-  background: #e0e7ff;
-  color: #4338ca;
+  background: var(--hive-brand-subtle);
+  color: var(--hive-brand);
   border-radius: 4px;
   padding: 1px 4px;
   font-weight: 500;

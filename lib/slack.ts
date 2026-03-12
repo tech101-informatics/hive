@@ -7,9 +7,11 @@ const APP_URL = process.env.NEXTAUTH_URL || "http://localhost:3000";
 
 export type SlackEvent =
   | { type: "task_created"; taskTitle: string; projectName: string; projectId: string; taskId: string; assignees?: string[] }
-  | { type: "task_status_changed"; taskTitle: string; projectName: string; projectId: string; taskId: string; from: string; to: string; changedBy?: string }
+  | { type: "task_status_changed"; taskTitle: string; projectName: string; projectId: string; taskId: string; from: string; to: string; changedBy?: string; assignees?: string[] }
   | { type: "task_assigned"; taskTitle: string; projectName: string; projectId: string; taskId: string; assignees: string[]; assignedBy?: string }
-  | { type: "task_deadline"; taskTitle: string; projectName: string; projectId: string; taskId: string; deadline: string; assignees?: string[] }
+  | { type: "task_deadline"; taskTitle: string; projectName: string; projectId: string; taskId: string; deadline: string; assignees?: string[]; changedBy?: string }
+  | { type: "task_priority_changed"; taskTitle: string; projectName: string; projectId: string; taskId: string; from: string; to: string; changedBy?: string; assignees?: string[] }
+  | { type: "task_labels_changed"; taskTitle: string; projectName: string; projectId: string; taskId: string; added: string[]; removed: string[]; changedBy?: string; assignees?: string[] }
   | { type: "comment_added"; taskTitle: string; projectName: string; projectId: string; taskId: string; author: string; assignees?: string[] }
   | { type: "project_created"; projectName: string; projectId: string; createdBy?: string }
   | { type: "project_completed"; projectName: string; projectId: string };
@@ -183,6 +185,13 @@ export async function sendSlackNotification(
         const emoji = STATUS_EMOJI[event.to] ?? "🔄";
         const byText = event.changedBy ? ` by ${tagUser(event.changedBy, map)}` : "";
         await postToChannel(`${emoji} *Status:* ${link} moved *${event.from}* → *${event.to}*${byText}`);
+        if (event.assignees?.length) {
+          await sendDMsToMembers(
+            event.assignees,
+            `${emoji} *Status update:* ${link} moved *${event.from}* → *${event.to}*${byText}`,
+            map,
+          );
+        }
         break;
       }
       case "task_assigned": {
@@ -203,7 +212,37 @@ export async function sendSlackNotification(
         if (event.assignees?.length) {
           await sendDMsToMembers(
             event.assignees,
-            `⏰ *Deadline reminder:* ${link} is due on *${event.deadline}*`,
+            `⏰ *Deadline update:* ${link} is due on *${event.deadline}*`,
+            map,
+          );
+        }
+        break;
+      }
+      case "task_priority_changed": {
+        const link = taskLink(event.projectId, event.taskId, event.taskTitle);
+        const byText = event.changedBy ? ` by ${tagUser(event.changedBy, map)}` : "";
+        await postToChannel(`🔺 *Priority:* ${link} changed *${event.from}* → *${event.to}*${byText}`);
+        if (event.assignees?.length) {
+          await sendDMsToMembers(
+            event.assignees,
+            `🔺 *Priority update:* ${link} changed *${event.from}* → *${event.to}*${byText}`,
+            map,
+          );
+        }
+        break;
+      }
+      case "task_labels_changed": {
+        const link = taskLink(event.projectId, event.taskId, event.taskTitle);
+        const byText = event.changedBy ? ` by ${tagUser(event.changedBy, map)}` : "";
+        const parts: string[] = [];
+        if (event.added.length) parts.push(`added *${event.added.join(", ")}*`);
+        if (event.removed.length) parts.push(`removed *${event.removed.join(", ")}*`);
+        const changeText = parts.join(", ");
+        await postToChannel(`🏷️ *Labels:* ${link} — ${changeText}${byText}`);
+        if (event.assignees?.length) {
+          await sendDMsToMembers(
+            event.assignees,
+            `🏷️ *Labels updated:* ${link} — ${changeText}${byText}`,
             map,
           );
         }

@@ -27,39 +27,39 @@ export function CreateProjectModal({ onClose, onCreated }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-bg-surface border border-border rounded-2xl shadow-xl p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-slate-900">New Board</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg"><X size={18} /></button>
+          <h2 className="text-xl font-bold text-text-primary">New Board</h2>
+          <button onClick={onClose} className="p-2 hover:bg-bg-card rounded-lg"><X size={18} className="text-text-secondary" /></button>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-slate-700 block mb-1">Board Name *</label>
+            <label className="text-sm font-medium text-text-secondary block mb-1">Board Name *</label>
             <input
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full border border-border bg-bg-card text-text-primary rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand placeholder:text-text-disabled"
               value={form.name} onChange={e => { setForm({ ...form, name: e.target.value }); setError(""); }}
               placeholder="e.g. Website Redesign"
             />
-            {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+            {error && <p className="text-danger text-xs mt-1">{error}</p>}
           </div>
 
           <div>
-            <label className="text-sm font-medium text-slate-700 block mb-1">Description</label>
+            <label className="text-sm font-medium text-text-secondary block mb-1">Description</label>
             <textarea
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              className="w-full border border-border bg-bg-card text-text-primary rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand resize-none placeholder:text-text-disabled"
               rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
               placeholder="What is this project about?"
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium text-slate-700 block mb-2">Color</label>
+            <label className="text-sm font-medium text-text-secondary block mb-2">Color</label>
             <div className="flex gap-2 flex-wrap">
               {COLORS.map(c => (
                 <button key={c} onClick={() => setForm({ ...form, color: c })}
-                  className={`w-7 h-7 rounded-full transition-transform ${form.color === c ? "scale-125 ring-2 ring-offset-1 ring-slate-400" : "hover:scale-110"}`}
+                  className={`w-7 h-7 rounded-full transition-transform ${form.color === c ? "scale-125 ring-2 ring-offset-1 ring-border ring-offset-bg-surface" : "hover:scale-110"}`}
                   style={{ background: c }}
                 />
               ))}
@@ -67,19 +67,19 @@ export function CreateProjectModal({ onClose, onCreated }: Props) {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-slate-700 block mb-1">Status</label>
-            <select className="w-full border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            <label className="text-sm font-medium text-text-secondary block mb-1">Status</label>
+            <select className="w-full border border-border bg-bg-card text-text-primary rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
               value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-              <option value="active">Active</option>
-              <option value="on-hold">On Hold</option>
+              <option className="bg-bg-card text-text-primary" value="active">Active</option>
+              <option className="bg-bg-card text-text-primary" value="on-hold">On Hold</option>
             </select>
           </div>
         </div>
 
         <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50">Cancel</button>
+          <button onClick={onClose} className="flex-1 px-4 py-2 border border-border rounded-lg text-text-secondary hover:bg-bg-card">Cancel</button>
           <button onClick={handleSubmit} disabled={saving}
-            className="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 font-medium transition-colors">
+            className="flex-1 bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-hover disabled:opacity-50 font-medium transition-colors">
             {saving ? "Creating..." : "Create Board"}
           </button>
         </div>

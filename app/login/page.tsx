@@ -1,20 +1,16 @@
 "use client";
 import { signIn } from "next-auth/react";
-import { FolderKanban } from "lucide-react";
-
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm text-center">
-        <div className="w-14 h-14 bg-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-          <FolderKanban size={28} className="text-white" />
-        </div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-1">ProjectHub</h1>
-        <p className="text-slate-500 text-sm mb-8">Sign in to manage your projects</p>
+    <div className="min-h-screen bg-bg-base flex items-center justify-center p-4">
+      <div className="bg-bg-surface border border-border rounded-2xl shadow-lg p-8 w-full max-w-sm text-center">
+        <img src="/hive-icon.png" alt="Hive" className="w-14 h-14 rounded-xl mx-auto mb-4" />
+        <h1 className="text-2xl font-bold text-text-primary mb-1">Hive</h1>
+        <p className="text-text-secondary text-sm mb-8">Sign in to manage your projects</p>
 
         <button
           onClick={() => signIn("google", { callbackUrl: "/" })}
-          className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 rounded-lg px-4 py-3 text-slate-700 font-medium hover:bg-slate-50 hover:border-slate-300 transition-colors"
+          className="w-full flex items-center justify-center gap-3 bg-brand text-white border border-brand rounded-lg px-4 py-3 font-medium hover:bg-brand-hover transition-colors"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>

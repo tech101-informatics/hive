@@ -40,7 +40,7 @@ export default async function Dashboard() {
   const stats = await getStats();
 
   const cards = [
-    { label: "Total Boards", value: stats.totalBoards, icon: FolderKanban, color: "bg-indigo-500", href: "/projects" },
+    { label: "Total Boards", value: stats.totalBoards, icon: FolderKanban, color: "bg-brand", href: "/projects" },
     { label: "Total Cards", value: stats.totalCards, icon: CheckSquare, color: "bg-emerald-500", href: "/projects" },
     { label: "Completed Cards", value: stats.doneCards, icon: TrendingUp, color: "bg-violet-500", href: "/projects" },
     { label: "Team Members", value: stats.totalMembers, icon: Users, color: "bg-orange-500", href: "/members" },
@@ -49,20 +49,20 @@ export default async function Dashboard() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
-        <p className="text-slate-500 mt-1">Welcome back! Here&apos;s what&apos;s happening.</p>
+        <h1 className="text-3xl font-bold text-text-primary">Dashboard</h1>
+        <p className="text-text-secondary mt-1">Welcome back! Here&apos;s what&apos;s happening.</p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         {cards.map((c) => (
-          <Link key={c.label} href={c.href} className="bg-white rounded-xl shadow-sm p-6 flex items-center gap-4 hover:shadow-md transition-shadow">
+          <Link key={c.label} href={c.href} className="bg-bg-card border border-border hover:border-brand/30 rounded-xl p-6 flex items-center gap-4 transition-colors">
             <div className={`${c.color} rounded-lg p-3 text-white`}>
               <c.icon size={22} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-slate-900">{c.value}</p>
-              <p className="text-sm text-slate-500">{c.label}</p>
+              <p className="text-2xl font-bold text-text-primary">{c.value}</p>
+              <p className="text-sm text-text-secondary">{c.label}</p>
             </div>
           </Link>
         ))}
@@ -70,13 +70,13 @@ export default async function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Boards */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="bg-bg-card border border-border rounded-xl p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="font-semibold text-slate-800 text-lg">Recent Boards</h2>
-            <Link href="/projects" className="text-indigo-600 text-sm hover:underline">View all</Link>
+            <h2 className="font-semibold text-text-primary text-lg">Recent Boards</h2>
+            <Link href="/projects" className="text-brand text-sm hover:underline">View all</Link>
           </div>
           {stats.recentBoards.length === 0 ? (
-            <p className="text-slate-400 text-sm">No boards yet.</p>
+            <p className="text-text-disabled text-sm">No boards yet.</p>
           ) : (
             <ul className="space-y-3">
               {stats.recentBoards.map((p: any) => {
@@ -85,28 +85,28 @@ export default async function Dashboard() {
                 const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
                 return (
                   <li key={pid}>
-                    <Link href={`/projects/${pid}`} className="block hover:bg-slate-50 -mx-2 px-2 py-1.5 rounded-lg transition-colors">
+                    <Link href={`/projects/${pid}`} className="block hover:bg-bg-surface -mx-2 px-2 py-1.5 rounded-lg transition-colors">
                       <div className="flex items-center gap-3">
                         <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: p.color }} />
-                        <span className="text-slate-700 hover:text-indigo-600 font-medium truncate flex-1">{p.name}</span>
+                        <span className="text-text-primary hover:text-brand font-medium truncate flex-1">{p.name}</span>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          p.status === "active" ? "bg-emerald-100 text-emerald-700" :
-                          p.status === "completed" ? "bg-slate-100 text-slate-600" :
-                          "bg-yellow-100 text-yellow-700"
+                          p.status === "active" ? "bg-success-subtle text-success" :
+                          p.status === "completed" ? "bg-border text-text-secondary" :
+                          "bg-warning-subtle text-warning"
                         }`}>{p.status}</span>
                       </div>
                       {progress.total > 0 && (
                         <div className="flex items-center gap-2 mt-1.5 ml-6">
-                          <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="flex-1 h-1 bg-border-subtle rounded-full overflow-hidden">
                             <div
                               className="h-full rounded-full"
                               style={{
                                 width: `${pct}%`,
-                                background: pct === 100 ? '#10b981' : '#6366f1',
+                                background: pct === 100 ? '#34d399' : '#395bea',
                               }}
                             />
                           </div>
-                          <span className="text-[11px] text-slate-400 w-12 text-right">{progress.done}/{progress.total}</span>
+                          <span className="text-[11px] text-text-disabled w-12 text-right">{progress.done}/{progress.total}</span>
                         </div>
                       )}
                     </Link>
@@ -118,12 +118,12 @@ export default async function Dashboard() {
         </div>
 
         {/* Recent Cards */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="bg-bg-card border border-border rounded-xl p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="font-semibold text-slate-800 text-lg">Recent Cards</h2>
+            <h2 className="font-semibold text-text-primary text-lg">Recent Cards</h2>
           </div>
           {stats.recentCards.length === 0 ? (
-            <p className="text-slate-400 text-sm">No cards yet.</p>
+            <p className="text-text-disabled text-sm">No cards yet.</p>
           ) : (
             <ul className="space-y-3">
               {stats.recentCards.map((t: any) => {
@@ -136,7 +136,7 @@ export default async function Dashboard() {
                       t.priority === "high" ? "bg-red-500" :
                       t.priority === "medium" ? "bg-yellow-500" : "bg-green-500"
                     }`} />
-                    <span className="text-slate-700 truncate">{t.title}</span>
+                    <span className="text-text-primary truncate">{t.title}</span>
                     <span
                       className="ml-auto text-xs px-2 py-0.5 rounded-full font-medium"
                       style={{ backgroundColor: statusColor + "20", color: statusColor }}

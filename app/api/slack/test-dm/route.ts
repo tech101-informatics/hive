@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     },
     body: JSON.stringify({
       channel: openData.channel.id,
-      text: `👋 *Test notification* — This is a test message from ProjectHub to verify Slack DM delivery for *${memberName || "you"}*.`,
+      text: `👋 *Test notification* — This is a test message from Hive to verify Slack DM delivery for *${memberName || "you"}*.`,
       unfurl_links: false,
     }),
   });

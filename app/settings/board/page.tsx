@@ -2,7 +2,15 @@
 import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import {
-  GripVertical, Plus, Trash2, Star, Pencil, X, Check, AlertTriangle,
+  GripVertical,
+  Plus,
+  Trash2,
+  Star,
+  Pencil,
+  X,
+  Check,
+  AlertTriangle,
+  Pipette,
 } from "lucide-react";
 
 interface BoardColumn {
@@ -15,12 +23,18 @@ interface BoardColumn {
 }
 
 const PRESET_COLORS = [
-  "#64748b", "#3b82f6", "#a855f7", "#10b981",
-  "#f59e0b", "#ef4444", "#ec4899", "#06b6d4",
+  "#64748b",
+  "#3b82f6",
+  "#a855f7",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#ec4899",
+  "#06b6d4",
 ];
 
 export default function BoardSettingsPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const isAdmin = session?.user?.role === "admin";
 
   const [columns, setColumns] = useState<BoardColumn[]>([]);
@@ -29,6 +43,10 @@ export default function BoardSettingsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const editRef = useRef<HTMLInputElement>(null);
+  const [colorPickerId, setColorPickerId] = useState<string | null>(null);
+  const [pickerPos, setPickerPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const colorPickerRef = useRef<HTMLDivElement>(null);
+  const nativeColorRef = useRef<HTMLInputElement>(null);
 
   // Add form
   const [showAddForm, setShowAddForm] = useState(false);
@@ -59,6 +77,18 @@ export default function BoardSettingsPage() {
     if (editingId && editRef.current) editRef.current.focus();
   }, [editingId]);
 
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (
+        colorPickerRef.current &&
+        !colorPickerRef.current.contains(e.target as Node)
+      )
+        setColorPickerId(null);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(""), 2000);
@@ -84,9 +114,7 @@ export default function BoardSettingsPage() {
 
   // --- Color ---
   const updateColor = async (id: string, color: string) => {
-    setColumns((prev) =>
-      prev.map((c) => (c._id === id ? { ...c, color } : c))
-    );
+    setColumns((prev) => prev.map((c) => (c._id === id ? { ...c, color } : c)));
     await fetch(`/api/board-status/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -97,9 +125,7 @@ export default function BoardSettingsPage() {
 
   // --- Set Default ---
   const setDefault = async (id: string) => {
-    setColumns((prev) =>
-      prev.map((c) => ({ ...c, isDefault: c._id === id }))
-    );
+    setColumns((prev) => prev.map((c) => ({ ...c, isDefault: c._id === id })));
     await fetch(`/api/board-status/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -189,41 +215,45 @@ export default function BoardSettingsPage() {
     showToast("Saved");
   };
 
-  if (!isAdmin) {
+  if (status === "loading" || loading) {
     return (
-      <div className="text-center py-20">
-        <p className="text-slate-500">You don&apos;t have permission to access this page.</p>
+      <div className="flex justify-center py-20">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-brand border-t-transparent" />
       </div>
     );
   }
 
-  if (loading) {
+  if (!isAdmin) {
     return (
-      <div className="flex justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-500 border-t-transparent" />
+      <div className="text-center py-20">
+        <p className="text-text-secondary">
+          You don&apos;t have permission to access this page.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Board Columns</h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <h1 className="text-2xl font-bold text-text-primary">
+            Board Columns
+          </h1>
+          <p className="text-text-secondary text-sm mt-1">
             Configure the columns that appear on your Kanban board.
           </p>
         </div>
         <button
           onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 font-medium transition-colors text-sm"
+          className="flex items-center gap-2 bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-hover font-medium transition-colors text-sm"
         >
           <Plus size={16} /> Add Column
         </button>
       </div>
 
       {/* Column list */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-bg-card rounded-xl overflow-hidden">
         {columns.map((col, idx) => (
           <div
             key={col._id}
@@ -239,37 +269,27 @@ export default function BoardSettingsPage() {
               setDraggingIdx(null);
               setDragOverIdx(null);
             }}
-            className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100 last:border-b-0 transition-colors ${
+            className={`flex items-center gap-3 px-4 py-3 border-b border-border last:border-b-0 transition-colors ${
               draggingIdx === idx ? "opacity-50" : ""
-            } ${dragOverIdx === idx ? "bg-indigo-50" : "hover:bg-slate-50"}`}
+            } ${dragOverIdx === idx ? "bg-brand-subtle" : "hover:bg-bg-surface"}`}
           >
             {/* Drag handle */}
             <GripVertical
               size={16}
-              className="text-slate-300 cursor-grab active:cursor-grabbing flex-shrink-0"
+              className="text-text-disabled cursor-grab active:cursor-grabbing flex-shrink-0"
             />
 
             {/* Color swatch */}
-            <div className="relative group flex-shrink-0">
-              <div
-                className="w-5 h-5 rounded-full border-2 border-white shadow-sm cursor-pointer"
-                style={{ backgroundColor: col.color }}
-              />
-              <div className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg border border-slate-200 p-2 hidden group-hover:flex gap-1 z-10">
-                {PRESET_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${
-                      col.color === c
-                        ? "border-slate-800 scale-110"
-                        : "border-transparent"
-                    }`}
-                    style={{ backgroundColor: c }}
-                    onClick={() => updateColor(col._id, c)}
-                  />
-                ))}
-              </div>
-            </div>
+            <button
+              type="button"
+              className="w-5 h-5 rounded-full border-2 border-border shadow-sm cursor-pointer flex-shrink-0"
+              style={{ backgroundColor: col.color }}
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setPickerPos({ top: rect.bottom + 8, left: rect.left });
+                setColorPickerId(colorPickerId === col._id ? null : col._id);
+              }}
+            />
 
             {/* Label */}
             <div className="flex-1 min-w-0">
@@ -277,7 +297,7 @@ export default function BoardSettingsPage() {
                 <div className="flex items-center gap-2">
                   <input
                     ref={editRef}
-                    className="text-sm font-medium text-slate-800 bg-transparent border border-indigo-300 rounded px-2 py-0.5 outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="text-sm font-medium text-text-primary bg-transparent border border-brand rounded px-2 py-0.5 outline-none focus:ring-2 focus:ring-brand"
                     value={editLabel}
                     onChange={(e) => setEditLabel(e.target.value)}
                     onKeyDown={(e) => {
@@ -289,10 +309,10 @@ export default function BoardSettingsPage() {
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-slate-800">
+                  <span className="text-sm font-medium text-text-primary">
                     {col.label}
                   </span>
-                  <span className="text-[10px] text-slate-400 font-mono">
+                  <span className="text-[10px] text-text-secondary font-mono">
                     {col.slug}
                   </span>
                 </div>
@@ -301,13 +321,13 @@ export default function BoardSettingsPage() {
 
             {/* Default badge or set default */}
             {col.isDefault ? (
-              <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium flex-shrink-0">
-                <Star size={10} className="fill-amber-500" /> Default
+              <span className="flex items-center gap-1 text-xs text-warning bg-warning-subtle px-2 py-0.5 rounded-full font-medium flex-shrink-0">
+                <Star size={10} className="fill-warning" /> Default
               </span>
             ) : (
               <button
                 onClick={() => setDefault(col._id)}
-                className="text-xs text-slate-400 hover:text-amber-600 transition-colors flex-shrink-0"
+                className="text-xs text-text-disabled hover:text-warning transition-colors flex-shrink-0"
                 title="Set as default"
               >
                 Set Default
@@ -317,7 +337,7 @@ export default function BoardSettingsPage() {
             {/* Rename */}
             <button
               onClick={() => startRename(col)}
-              className="p-1.5 text-slate-300 hover:text-indigo-500 transition-colors flex-shrink-0"
+              className="p-1.5 text-text-disabled hover:text-brand transition-colors flex-shrink-0"
               title="Rename"
             >
               <Pencil size={14} />
@@ -326,7 +346,7 @@ export default function BoardSettingsPage() {
             {/* Delete */}
             <button
               onClick={() => initiateDelete(col)}
-              className="p-1.5 text-slate-300 hover:text-red-500 transition-colors flex-shrink-0"
+              className="p-1.5 text-text-disabled hover:text-danger transition-colors flex-shrink-0"
               title="Delete"
             >
               <Trash2 size={14} />
@@ -335,17 +355,111 @@ export default function BoardSettingsPage() {
         ))}
       </div>
 
-      <p className="text-xs text-slate-400 mt-3 text-center">
-        Drag rows to reorder columns. Hover the color dot to change colors.
+      <p className="text-xs text-text-disabled mt-3 text-center">
+        Drag rows to reorder columns. Click the color dot to change colors.
       </p>
+
+      {/* Color picker — rendered fixed so it escapes overflow-hidden */}
+      {colorPickerId && (
+        <div
+          ref={colorPickerRef}
+          className="fixed z-50 bg-bg-surface rounded-xl shadow-xl border border-border p-3"
+          style={{ top: pickerPos.top, left: pickerPos.left }}
+        >
+          <div className="flex items-center gap-1.5 mb-2">
+            {PRESET_COLORS.map((c) => (
+              <button
+                key={c}
+                className={`w-7 h-7 rounded-full border-2 transition-transform hover:scale-110 ${
+                  columns.find((col) => col._id === colorPickerId)?.color === c
+                    ? "border-text-primary scale-110"
+                    : "border-transparent"
+                }`}
+                style={{ backgroundColor: c }}
+                onClick={() => {
+                  updateColor(colorPickerId, c);
+                  setColorPickerId(null);
+                }}
+              />
+            ))}
+          </div>
+          <div className="h-px bg-border-subtle my-2" />
+          <div className="flex items-center gap-2">
+            <div
+              className="w-7 h-7 rounded-full border-2 border-border flex-shrink-0"
+              style={{
+                backgroundColor:
+                  columns.find((col) => col._id === colorPickerId)?.color ||
+                  "#888",
+              }}
+            />
+            <input
+              type="text"
+              className="flex-1 text-xs font-mono bg-bg-card border border-border text-text-primary rounded px-2 py-1 w-20 outline-none focus:ring-1 focus:ring-brand"
+              value={
+                columns.find((col) => col._id === colorPickerId)?.color || ""
+              }
+              onChange={(e) => {
+                const val = e.target.value;
+                if (/^#[0-9a-fA-F]{0,6}$/.test(val)) {
+                  setColumns((prev) =>
+                    prev.map((c) =>
+                      c._id === colorPickerId ? { ...c, color: val } : c,
+                    ),
+                  );
+                }
+              }}
+              onBlur={(e) => {
+                const val = e.target.value;
+                if (/^#[0-9a-fA-F]{6}$/.test(val) && colorPickerId) {
+                  updateColor(colorPickerId, val);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const val = (e.target as HTMLInputElement).value;
+                  if (/^#[0-9a-fA-F]{6}$/.test(val) && colorPickerId) {
+                    updateColor(colorPickerId, val);
+                    setColorPickerId(null);
+                  }
+                }
+              }}
+              placeholder="#hex"
+            />
+            <button
+              type="button"
+              className="p-1.5 text-text-secondary hover:text-brand transition-colors rounded-lg hover:bg-bg-card"
+              title="Pick from screen"
+              onClick={() => nativeColorRef.current?.click()}
+            >
+              <Pipette size={14} />
+            </button>
+            <input
+              ref={nativeColorRef}
+              type="color"
+              className="sr-only"
+              value={
+                columns.find((col) => col._id === colorPickerId)?.color ||
+                "#888888"
+              }
+              onChange={(e) => {
+                if (colorPickerId) {
+                  updateColor(colorPickerId, e.target.value);
+                  setColorPickerId(null);
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Add column form */}
       {showAddForm && (
-        <div className="mt-4 bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+        <div className="mt-4 bg-bg-card rounded-xl border border-border p-4">
           <div className="flex items-center gap-3">
             <input
               autoFocus
-              className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+              className="flex-1 text-sm bg-bg-surface border border-border text-text-primary placeholder:text-text-disabled rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand"
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
               placeholder="Column name..."
@@ -360,23 +474,35 @@ export default function BoardSettingsPage() {
                   key={c}
                   className={`w-5 h-5 rounded-full border-2 transition-transform ${
                     newColor === c
-                      ? "border-slate-800 scale-110"
+                      ? "border-text-primary scale-110"
                       : "border-transparent hover:scale-110"
                   }`}
                   style={{ backgroundColor: c }}
                   onClick={() => setNewColor(c)}
                 />
               ))}
+              <label
+                className="w-5 h-5 rounded-full border-2 border-dashed border-text-disabled cursor-pointer flex items-center justify-center hover:border-brand transition-colors"
+                title="Custom color"
+              >
+                <Pipette size={10} className="text-text-disabled" />
+                <input
+                  type="color"
+                  className="sr-only"
+                  value={newColor}
+                  onChange={(e) => setNewColor(e.target.value)}
+                />
+              </label>
             </div>
             <button
               onClick={addColumn}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 text-sm font-medium"
+              className="bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-hover text-sm font-medium"
             >
               Add
             </button>
             <button
               onClick={() => setShowAddForm(false)}
-              className="p-2 text-slate-400 hover:text-slate-600"
+              className="p-2 text-text-disabled hover:text-text-secondary"
             >
               <X size={16} />
             </button>
@@ -386,15 +512,17 @@ export default function BoardSettingsPage() {
 
       {/* Delete confirmation dialog with migration */}
       {deleteTarget && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-bg-surface border border-border rounded-2xl shadow-xl p-6 w-full max-w-sm">
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <AlertTriangle size={20} className="text-red-600" />
+              <div className="p-2 bg-danger-subtle rounded-lg">
+                <AlertTriangle size={20} className="text-danger" />
               </div>
               <div>
-                <h3 className="font-semibold text-slate-900">Delete Column</h3>
-                <p className="text-sm text-slate-500">
+                <h3 className="font-semibold text-text-primary">
+                  Delete Column
+                </h3>
+                <p className="text-sm text-text-secondary">
                   &ldquo;{deleteTarget.label}&rdquo; has{" "}
                   <strong>{deleteTaskCount}</strong> card
                   {deleteTaskCount !== 1 ? "s" : ""}.
@@ -402,11 +530,11 @@ export default function BoardSettingsPage() {
               </div>
             </div>
 
-            <p className="text-sm text-slate-600 mb-3">
+            <p className="text-sm text-text-secondary mb-3">
               Move existing cards to:
             </p>
             <select
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-bg-card border border-border text-text-primary rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:ring-2 focus:ring-brand"
               value={migrateToId}
               onChange={(e) => setMigrateToId(e.target.value)}
             >
@@ -422,7 +550,7 @@ export default function BoardSettingsPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteTarget(null)}
-                className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-slate-700 hover:bg-slate-50 text-sm"
+                className="flex-1 px-4 py-2 border border-border rounded-lg text-text-secondary hover:bg-bg-card text-sm"
               >
                 Cancel
               </button>
@@ -439,8 +567,8 @@ export default function BoardSettingsPage() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 right-6 bg-slate-800 text-white px-4 py-2 rounded-lg shadow-lg text-sm flex items-center gap-2 animate-in z-50">
-          <Check size={14} className="text-emerald-400" />
+        <div className="fixed bottom-6 right-6 bg-bg-surface text-text-primary px-4 py-2 rounded-lg shadow-lg text-sm flex items-center gap-2 animate-in z-50 border border-border">
+          <Check size={14} className="text-success" />
           {toast}
         </div>
       )}

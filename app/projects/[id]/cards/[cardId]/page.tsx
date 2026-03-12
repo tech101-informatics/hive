@@ -44,8 +44,8 @@ export default function CardPage() {
   if (!task) {
     return (
       <div className="text-center py-20">
-        <p className="text-slate-500">Card not found.</p>
-        <button onClick={navigateToBoard} className="mt-4 text-indigo-600 hover:underline text-sm">
+        <p className="text-text-secondary">Card not found.</p>
+        <button onClick={navigateToBoard} className="mt-4 text-brand hover:underline text-sm">
           Back to board
         </button>
       </div>
