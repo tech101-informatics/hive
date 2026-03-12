@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { CreateTaskModal } from "@/components/CreateTaskModal";
+import { AssigneeDropdown } from "@/components/AssigneeDropdown";
 
 interface Project {
   _id: string;
@@ -230,11 +231,6 @@ export default function ProjectPage() {
     setFilterLabels([]);
   };
 
-  const toggleAssignee = (name: string) =>
-    setFilterAssignees((prev) =>
-      prev.includes(name) ? prev.filter((a) => a !== name) : [...prev, name],
-    );
-
   const toggleLabel = (name: string) =>
     setFilterLabels((prev) =>
       prev.includes(name) ? prev.filter((l) => l !== name) : [...prev, name],
@@ -373,64 +369,12 @@ export default function ProjectPage() {
           </FilterDropdown>
 
           {/* Assignee dropdown (multiselect) */}
-          <MultiFilterDropdown
-            label="Assignee"
-            icon={<User size={13} />}
-            values={filterAssignees}
-            onToggle={toggleAssignee}
-            onClear={() => setFilterAssignees([])}
-          >
-            {members.map((m) => {
-              const selected = filterAssignees.includes(m.name);
-              return (
-                <button
-                  key={m._id}
-                  type="button"
-                  onClick={() => toggleAssignee(m.name)}
-                  className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors text-left ${
-                    selected
-                      ? "filter-item-active"
-                      : "text-text-primary hover:!bg-bg-base"
-                  }`}
-                >
-                  <span
-                    className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center ${
-                      selected ? "bg-brand border-brand" : "border-border"
-                    }`}
-                  >
-                    {selected && (
-                      <svg
-                        width="10"
-                        height="10"
-                        viewBox="0 0 10 10"
-                        fill="none"
-                      >
-                        <path
-                          d="M2 5L4 7L8 3"
-                          stroke="white"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    )}
-                  </span>
-                  {m.avatar ? (
-                    <img
-                      src={m.avatar}
-                      alt={m.name}
-                      className="w-6 h-6 rounded-full flex-shrink-0"
-                    />
-                  ) : (
-                    <span className="w-5 h-5 rounded-full bg-brand-subtle flex items-center justify-center text-brand text-[9px] font-bold flex-shrink-0">
-                      {initials(m.name)}
-                    </span>
-                  )}
-                  {m.name}
-                </button>
-              );
-            })}
-          </MultiFilterDropdown>
+          <AssigneeDropdown
+            variant="button"
+            members={members}
+            selected={filterAssignees}
+            onChange={setFilterAssignees}
+          />
 
           {/* Label dropdown (multiselect) */}
           <MultiFilterDropdown

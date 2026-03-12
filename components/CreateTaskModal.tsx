@@ -1,6 +1,20 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { X, ChevronDown, Tag, Flag, User, Calendar, Layers } from "lucide-react";
+import {
+  X,
+  ChevronDown,
+  Tag,
+  Flag,
+  User,
+  Calendar,
+  Layers,
+  Plus,
+  ChevronsUpDown,
+  CheckSquare,
+  Trash2,
+} from "lucide-react";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import { AssigneeDropdown } from "@/components/AssigneeDropdown";
 
 interface BoardColumn {
   _id: string;
@@ -15,6 +29,13 @@ interface LabelData {
   _id: string;
   name: string;
   color: string;
+  category?: string;
+}
+
+interface ChecklistItem {
+  text: string;
+  completed: boolean;
+  order: number;
 }
 
 interface Props {
@@ -26,13 +47,15 @@ interface Props {
 }
 
 const PRIORITY_OPTIONS = [
-  { value: "low", label: "Low", dot: "bg-green-500" },
-  { value: "medium", label: "Medium", dot: "bg-yellow-500" },
-  { value: "high", label: "High", dot: "bg-red-500" },
+  { value: "low", label: "Low", cls: "bg-green-100 text-green-700" },
+  { value: "medium", label: "Medium", cls: "bg-yellow-100 text-yellow-700" },
+  { value: "high", label: "High", cls: "bg-red-100 text-red-700" },
 ];
 
 export function CreateTaskModal({ projectId, projectName, statuses, onClose, onCreated }: Props) {
   const defaultSlug = statuses.find((s) => s.isDefault)?.slug || statuses[0]?.slug || "todo";
+  const [open, setOpen] = useState(false);
+
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -41,21 +64,27 @@ export function CreateTaskModal({ projectId, projectName, statuses, onClose, onC
     labels: [] as string[],
     deadline: "",
     status: defaultSlug,
+    checklist: [] as ChecklistItem[],
   });
-  const [members, setMembers] = useState<{ _id: string; name: string }[]>([]);
+  const [members, setMembers] = useState<{ _id: string; name: string; avatar?: string }[]>([]);
   const [allLabels, setAllLabels] = useState<LabelData[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [newChecklistItem, setNewChecklistItem] = useState("");
 
-  const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
-  const [showLabelDropdown, setShowLabelDropdown] = useState(false);
   const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [showLabelDropdown, setShowLabelDropdown] = useState(false);
+  const [showFields, setShowFields] = useState(true);
+  const [labelSearch, setLabelSearch] = useState("");
 
-  const assigneeRef = useRef<HTMLDivElement>(null);
-  const labelRef = useRef<HTMLDivElement>(null);
-  const priorityRef = useRef<HTMLDivElement>(null);
-  const statusRef = useRef<HTMLDivElement>(null);
+  const priorityDropdownRef = useRef<HTMLDivElement>(null);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
+  const labelDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    requestAnimationFrame(() => setOpen(true));
+  }, []);
 
   useEffect(() => {
     Promise.all([fetch("/api/members"), fetch("/api/labels")])
@@ -69,31 +98,22 @@ export function CreateTaskModal({ projectId, projectName, statuses, onClose, onC
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (assigneeRef.current && !assigneeRef.current.contains(e.target as Node)) setShowAssigneeDropdown(false);
-      if (labelRef.current && !labelRef.current.contains(e.target as Node)) setShowLabelDropdown(false);
-      if (priorityRef.current && !priorityRef.current.contains(e.target as Node)) setShowPriorityDropdown(false);
-      if (statusRef.current && !statusRef.current.contains(e.target as Node)) setShowStatusDropdown(false);
+      if (showPriorityDropdown && priorityDropdownRef.current && !priorityDropdownRef.current.contains(e.target as Node))
+        setShowPriorityDropdown(false);
+      if (showStatusDropdown && statusDropdownRef.current && !statusDropdownRef.current.contains(e.target as Node))
+        setShowStatusDropdown(false);
+      if (showLabelDropdown && labelDropdownRef.current && !labelDropdownRef.current.contains(e.target as Node)) {
+        setShowLabelDropdown(false);
+        setLabelSearch("");
+      }
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
+  }, [showPriorityDropdown, showStatusDropdown, showLabelDropdown]);
 
-  const toggleAssignee = (name: string) => {
-    setForm((prev) => ({
-      ...prev,
-      assignees: prev.assignees.includes(name)
-        ? prev.assignees.filter((a) => a !== name)
-        : [...prev.assignees, name],
-    }));
-  };
-
-  const toggleLabel = (name: string) => {
-    setForm((prev) => ({
-      ...prev,
-      labels: prev.labels.includes(name)
-        ? prev.labels.filter((l) => l !== name)
-        : [...prev.labels, name],
-    }));
+  const handleClose = () => {
+    setOpen(false);
+    setTimeout(onClose, 200);
   };
 
   const handleSubmit = async () => {
@@ -107,266 +127,455 @@ export function CreateTaskModal({ projectId, projectName, statuses, onClose, onC
         projectId,
         deadline: form.deadline || undefined,
         labels: form.labels.length > 0 ? form.labels : undefined,
+        checklist: form.checklist.length > 0 ? form.checklist : undefined,
       }),
     });
     setSaving(false);
     onCreated();
   };
 
-  const currentPriority = PRIORITY_OPTIONS.find((p) => p.value === form.priority);
-  const currentStatus = statuses.find((s) => s.slug === form.status);
-
-  const initials = (name: string) =>
-    name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  const statusCol = statuses.find((s) => s.slug === form.status);
+  const statusOpt = statusCol
+    ? { value: statusCol.slug, label: statusCol.label, color: statusCol.color }
+    : { value: form.status, label: form.status, color: "#64748b" };
+  const priorityOpt = PRIORITY_OPTIONS.find((p) => p.value === form.priority)!;
+  const mentionUsersList = members.map((m) => ({ id: m._id, label: m.name }));
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <>
+      {/* Backdrop */}
       <div
-        className="bg-bg-surface border border-border rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
+        className={`fixed inset-0 bg-black/40 z-40 transition-opacity duration-200 ${open ? "opacity-100" : "opacity-0"}`}
+        onClick={handleClose}
+      />
+
+      {/* Full overlay panel */}
+      <div
+        className={`fixed inset-4 md:inset-8 lg:inset-12 bg-bg-surface rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-200 ${
+          open ? "opacity-100 scale-100" : "opacity-0 scale-95"
+        }`}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border">
-          <div>
-            <h2 className="text-lg font-semibold text-text-primary">Create Card</h2>
-            <p className="text-text-secondary text-xs mt-0.5">{projectName}</p>
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-bg-card">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="font-semibold text-text-primary">Create Card</span>
+            <span className="text-text-disabled">&middot;</span>
+            <span className="text-text-secondary">{projectName}</span>
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-bg-card rounded-lg transition-colors">
-            <X size={18} className="text-text-secondary" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="bg-brand text-white px-3 py-1.5 rounded-lg hover:bg-brand-hover disabled:opacity-50 font-medium transition-colors text-xs"
+            >
+              {saving ? "Creating..." : "Create Card"}
+            </button>
+            <button
+              onClick={handleClose}
+              className="p-2 hover:bg-bg-surface rounded-lg transition-colors"
+            >
+              <X size={18} className="text-text-disabled" />
+            </button>
+          </div>
         </div>
 
-        <div className="px-6 py-5 space-y-5">
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-8 pt-5">
           {/* Title */}
-          <div>
-            <input
-              autoFocus
-              className="w-full text-lg font-medium text-text-primary bg-transparent border-0 border-b-2 border-border pb-2 focus:outline-none focus:border-brand transition-colors placeholder:text-text-disabled"
-              value={form.title}
-              onChange={(e) => { setForm({ ...form, title: e.target.value }); setError(""); }}
-              placeholder="Card title..."
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
-            />
-            {error && <p className="text-danger text-xs mt-1.5">{error}</p>}
-          </div>
+          <input
+            autoFocus
+            className="w-full text-2xl font-bold text-text-primary bg-transparent border-0 outline-none placeholder:text-text-disabled mb-1"
+            value={form.title}
+            onChange={(e) => { setForm({ ...form, title: e.target.value }); setError(""); }}
+            placeholder="Card title..."
+          />
+          {error && <p className="text-danger text-xs mb-2">{error}</p>}
 
-          {/* Description */}
-          <div>
-            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider block mb-1.5">Description</label>
-            <textarea
-              className="w-full border border-border bg-bg-card text-text-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand resize-none transition-colors placeholder:text-text-disabled"
-              rows={3}
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="Add a description..."
-            />
-          </div>
-
-          {/* Fields grid */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* Priority */}
-            <div ref={priorityRef} className="relative">
-              <label className="text-xs font-medium text-text-secondary uppercase tracking-wider block mb-1.5">Priority</label>
-              <button
-                type="button"
-                onClick={() => setShowPriorityDropdown((p) => !p)}
-                className="w-full border border-border bg-bg-card rounded-lg px-3 py-2 text-left flex items-center gap-2 hover:border-border transition-colors"
-              >
-                <Flag size={13} className="text-text-secondary" />
-                <span className={`w-2 h-2 rounded-full ${currentPriority?.dot}`} />
-                <span className="text-sm text-text-primary flex-1">{currentPriority?.label}</span>
-                <ChevronDown size={12} className={`text-text-secondary transition-transform ${showPriorityDropdown ? "rotate-180" : ""}`} />
-              </button>
-              {showPriorityDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-20 py-1">
-                  {PRIORITY_OPTIONS.map((p) => (
-                    <button
-                      key={p.value}
-                      type="button"
-                      onClick={() => { setForm({ ...form, priority: p.value }); setShowPriorityDropdown(false); }}
-                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors text-left ${
-                        form.priority === p.value ? "bg-brand-subtle text-brand" : "text-text-primary hover:bg-bg-surface"
-                      }`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${p.dot}`} />
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+          {/* On boards section */}
+          <div className="bg-bg-card border border-border rounded-xl mb-6 overflow-hidden mt-4">
+            <div className="px-4 py-2 border-b border-border bg-bg-surface/50">
+              <span className="text-sm font-semibold text-text-primary">On boards (1)</span>
             </div>
-
-            {/* Status */}
-            <div ref={statusRef} className="relative">
-              <label className="text-xs font-medium text-text-secondary uppercase tracking-wider block mb-1.5">Status</label>
-              <button
-                type="button"
-                onClick={() => setShowStatusDropdown((p) => !p)}
-                className="w-full border border-border bg-bg-card rounded-lg px-3 py-2 text-left flex items-center gap-2 hover:border-border transition-colors"
-              >
-                <Layers size={13} className="text-text-secondary" />
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentStatus?.color }} />
-                <span className="text-sm text-text-primary flex-1">{currentStatus?.label}</span>
-                <ChevronDown size={12} className={`text-text-secondary transition-transform ${showStatusDropdown ? "rotate-180" : ""}`} />
-              </button>
-              {showStatusDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-20 py-1">
-                  {statuses.map((s) => (
-                    <button
-                      key={s.slug}
-                      type="button"
-                      onClick={() => { setForm({ ...form, status: s.slug }); setShowStatusDropdown(false); }}
-                      className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors text-left ${
-                        form.status === s.slug ? "bg-brand-subtle text-brand" : "text-text-primary hover:bg-bg-surface"
-                      }`}
-                    >
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Assignees */}
-          <div ref={assigneeRef} className="relative">
-            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider block mb-1.5">Assignees</label>
-            <button
-              type="button"
-              onClick={() => setShowAssigneeDropdown((p) => !p)}
-              className="w-full border border-border bg-bg-card rounded-lg px-3 py-2 text-left flex items-center gap-2 hover:border-border transition-colors"
-            >
-              <User size={13} className="text-text-secondary flex-shrink-0" />
-              {form.assignees.length > 0 ? (
-                <div className="flex items-center gap-1.5 flex-1 flex-wrap">
-                  {form.assignees.map((a) => (
-                    <span key={a} className="inline-flex items-center gap-1 bg-bg-card text-text-primary text-xs px-2 py-0.5 rounded-full">
-                      <span className="w-4 h-4 rounded-full bg-brand-subtle flex items-center justify-center text-brand text-[8px] font-bold">
-                        {initials(a)}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-text-secondary">
+                    <th className="px-4 py-1 font-medium">Board</th>
+                    <th className="px-4 py-1 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t border-border-subtle">
+                    <td className="px-4 py-1">
+                      <span className="text-text-primary font-medium">{projectName}</span>
+                    </td>
+                    <td className="px-4 py-1">
+                      <span
+                        className="inline-block rounded-full text-xs font-semibold"
+                        style={{ color: statusOpt.color }}
+                      >
+                        {statusOpt.label}
                       </span>
-                      {a}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <span className="text-sm text-text-disabled flex-1">Select assignees...</span>
-              )}
-              <ChevronDown size={12} className={`text-text-secondary flex-shrink-0 transition-transform ${showAssigneeDropdown ? "rotate-180" : ""}`} />
-            </button>
-            {showAssigneeDropdown && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-20 max-h-44 overflow-y-auto py-1">
-                {members.map((m) => (
-                  <button
-                    key={m._id}
-                    type="button"
-                    onClick={() => toggleAssignee(m.name)}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-bg-surface transition-colors text-left"
-                  >
-                    <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${
-                      form.assignees.includes(m.name)
-                        ? "bg-brand border-brand text-white"
-                        : "border-border"
-                    }`}>
-                      {form.assignees.includes(m.name) && "✓"}
-                    </span>
-                    <span className="w-5 h-5 rounded-full bg-brand-subtle flex items-center justify-center text-brand text-[9px] font-bold flex-shrink-0">
-                      {initials(m.name)}
-                    </span>
-                    <span className="text-text-primary">{m.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          {/* Labels */}
-          {allLabels.length > 0 && (
-            <div ref={labelRef} className="relative">
-              <label className="text-xs font-medium text-text-secondary uppercase tracking-wider block mb-1.5">Labels</label>
-              <button
-                type="button"
-                onClick={() => setShowLabelDropdown((p) => !p)}
-                className="w-full border border-border bg-bg-card rounded-lg px-3 py-2 text-left flex items-center gap-2 hover:border-border transition-colors"
-              >
-                <Tag size={13} className="text-text-secondary flex-shrink-0" />
-                {form.labels.length > 0 ? (
-                  <div className="flex items-center gap-1.5 flex-1 flex-wrap">
-                    {form.labels.map((l) => {
-                      const ld = allLabels.find((al) => al.name === l);
+          {showFields && (
+            <div className="space-y-0">
+              {/* Status */}
+              <div className="flex items-center py-3 border-t border-border-subtle">
+                <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary">
+                  <Layers size={15} />
+                  <span>Status</span>
+                </div>
+                <div className="relative" ref={statusDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowStatusDropdown((p) => !p)}
+                    className="text-xs px-2.5 py-1 rounded-full font-medium cursor-pointer transition-opacity hover:opacity-80"
+                    style={{ backgroundColor: statusOpt.color + "18", color: statusOpt.color }}
+                  >
+                    {statusOpt.label}
+                    <ChevronDown size={10} className="inline ml-1" />
+                  </button>
+                  {showStatusDropdown && (
+                    <div className="absolute top-full left-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-40 py-1">
+                      {statuses.map((s) => (
+                        <button
+                          key={s.slug}
+                          type="button"
+                          onClick={() => {
+                            setForm((prev) => ({ ...prev, status: s.slug }));
+                            setShowStatusDropdown(false);
+                          }}
+                          className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors text-left ${
+                            form.status === s.slug ? "bg-bg-surface" : "hover:bg-bg-surface"
+                          }`}
+                        >
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full font-medium"
+                            style={{ backgroundColor: s.color + "18", color: s.color }}
+                          >
+                            {s.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Priority */}
+              <div className="flex items-center py-3 border-t border-border-subtle">
+                <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary">
+                  <Flag size={15} />
+                  <span>Priority</span>
+                </div>
+                <div className="relative" ref={priorityDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowPriorityDropdown((p) => !p)}
+                    className={`text-xs px-2.5 py-1 rounded-full font-medium cursor-pointer transition-opacity hover:opacity-80 ${priorityOpt.cls}`}
+                  >
+                    {priorityOpt.label}
+                    <ChevronDown size={10} className="inline ml-1" />
+                  </button>
+                  {showPriorityDropdown && (
+                    <div className="absolute top-full left-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-40 py-1">
+                      {PRIORITY_OPTIONS.map((p) => (
+                        <button
+                          key={p.value}
+                          type="button"
+                          onClick={() => {
+                            setForm((prev) => ({ ...prev, priority: p.value }));
+                            setShowPriorityDropdown(false);
+                          }}
+                          className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors text-left ${
+                            form.priority === p.value ? "bg-bg-surface" : "hover:bg-bg-surface"
+                          }`}
+                        >
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.cls}`}>
+                            {p.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Assignees */}
+              <div className="flex items-start py-3 border-t border-border-subtle">
+                <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary pt-0.5">
+                  <User size={15} />
+                  <span>Assignees</span>
+                </div>
+                <AssigneeDropdown
+                  members={members}
+                  selected={form.assignees}
+                  onChange={(updated) => setForm((prev) => ({ ...prev, assignees: updated }))}
+                />
+              </div>
+
+              {/* Deadline */}
+              <div className="flex items-center py-3 border-t border-border-subtle">
+                <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary">
+                  <Calendar size={15} />
+                  <span>Deadline</span>
+                </div>
+                <input
+                  type="date"
+                  className="text-sm bg-transparent border-0 outline-none cursor-pointer font-medium text-text-primary"
+                  value={form.deadline}
+                  onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+                />
+              </div>
+
+              {/* Labels */}
+              <div className="flex items-start py-3 border-t border-b border-border-subtle">
+                <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary pt-0.5">
+                  <Tag size={15} />
+                  <span>Labels</span>
+                </div>
+                <div className="flex-1 relative" ref={labelDropdownRef}>
+                  <div className="flex flex-wrap gap-1.5 mb-1">
+                    {form.labels.map((label) => {
+                      const labelData = allLabels.find((t) => t.name === label);
+                      const labelColor = labelData?.color || "#6366f1";
                       return (
                         <span
-                          key={l}
-                          className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full text-white font-medium"
-                          style={{ backgroundColor: ld?.color || "#6366f1" }}
+                          key={label}
+                          className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium"
+                          style={{ backgroundColor: labelColor + "18", color: labelColor }}
                         >
-                          {l}
+                          <span
+                            className="w-2 h-2 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: labelColor }}
+                          />
+                          {label}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setForm((prev) => ({
+                                ...prev,
+                                labels: prev.labels.filter((l) => l !== label),
+                              }));
+                            }}
+                            className="hover:opacity-60 transition-opacity"
+                          >
+                            <X size={10} />
+                          </button>
                         </span>
                       );
                     })}
                   </div>
-                ) : (
-                  <span className="text-sm text-text-disabled flex-1">Add labels...</span>
-                )}
-                <ChevronDown size={12} className={`text-text-secondary flex-shrink-0 transition-transform ${showLabelDropdown ? "rotate-180" : ""}`} />
-              </button>
-              {showLabelDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-20 max-h-44 overflow-y-auto py-1">
-                  {allLabels.map((l) => (
-                    <button
-                      key={l._id}
-                      type="button"
-                      onClick={() => toggleLabel(l.name)}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-bg-surface transition-colors text-left"
-                    >
-                      <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${
-                        form.labels.includes(l.name)
-                          ? "bg-brand border-brand text-white"
-                          : "border-border"
-                      }`}>
-                        {form.labels.includes(l.name) && "✓"}
-                      </span>
-                      <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: l.color }} />
-                      <span className="text-text-primary">{l.name}</span>
-                    </button>
-                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setShowLabelDropdown((p) => !p)}
+                    className="text-sm text-text-disabled hover:text-brand transition-colors flex items-center gap-1"
+                  >
+                    <Plus size={12} /> Add label
+                  </button>
+                  {showLabelDropdown && (
+                    <div className="absolute top-full left-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-64 max-h-72 flex flex-col">
+                      <div className="px-3 py-2 border-b border-border">
+                        <input
+                          type="text"
+                          value={labelSearch}
+                          onChange={(e) => setLabelSearch(e.target.value)}
+                          placeholder="Search labels..."
+                          className="w-full text-sm bg-bg-card border border-border text-text-primary rounded px-2 py-1 outline-none focus:border-border placeholder:text-text-disabled"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="overflow-y-auto py-1">
+                        {(() => {
+                          const filtered = allLabels
+                            .filter((t) => !form.labels.includes(t.name))
+                            .filter((t) => t.name.toLowerCase().includes(labelSearch.toLowerCase()));
+                          if (filtered.length === 0) {
+                            return (
+                              <p className="px-3 py-3 text-xs text-text-disabled text-center">
+                                No labels found
+                              </p>
+                            );
+                          }
+                          const grouped: Record<string, LabelData[]> = {};
+                          filtered.forEach((t) => {
+                            const cat = t.category || "Other";
+                            if (!grouped[cat]) grouped[cat] = [];
+                            grouped[cat].push(t);
+                          });
+                          return Object.entries(grouped).map(([category, catLabels]) => (
+                            <div key={category}>
+                              <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-text-disabled uppercase tracking-wider">
+                                {category}
+                              </p>
+                              {catLabels.map((t) => (
+                                <button
+                                  key={t._id}
+                                  type="button"
+                                  onClick={() => {
+                                    setForm((prev) => ({
+                                      ...prev,
+                                      labels: [...prev.labels, t.name],
+                                    }));
+                                    setLabelSearch("");
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-surface transition-colors text-left"
+                                >
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                    style={{ backgroundColor: t.color }}
+                                  />
+                                  {t.name}
+                                </button>
+                              ))}
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           )}
 
-          {/* Deadline */}
-          <div>
-            <label className="text-xs font-medium text-text-secondary uppercase tracking-wider block mb-1.5">Deadline</label>
-            <div className="relative">
-              <Calendar size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
+          {/* Separator toggle */}
+          <div className="flex items-center gap-3 mt-6">
+            <div className="flex-1 h-px bg-border" />
+            <button
+              type="button"
+              onClick={() => setShowFields((p) => !p)}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-border text-xs text-text-secondary hover:bg-bg-card transition-colors whitespace-nowrap"
+            >
+              {showFields ? "Hide" : "Show"} fields
+              <ChevronsUpDown size={12} />
+            </button>
+          </div>
+
+          {/* Description */}
+          <div className="mt-6">
+            <RichTextEditor
+              mode="field"
+              initialContent=""
+              onChange={(html) => setForm((prev) => ({ ...prev, description: html }))}
+              placeholder="Add a description..."
+              mentionUsers={mentionUsersList}
+            />
+          </div>
+
+          {/* Checklist */}
+          <div className="mt-6 mb-8">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckSquare size={16} className="text-text-secondary" />
+              <h3 className="text-sm font-semibold text-text-primary">Subtasks</h3>
+              {form.checklist.length > 0 && (
+                <span className="text-xs text-text-disabled font-medium">
+                  {form.checklist.filter((i) => i.completed).length}/{form.checklist.length}
+                </span>
+              )}
+            </div>
+
+            {form.checklist.length > 0 && (() => {
+              const done = form.checklist.filter((i) => i.completed).length;
+              const total = form.checklist.length;
+              return (
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex-1 h-1.5 bg-border-subtle rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${done === total ? "bg-success" : "bg-brand"}`}
+                      style={{ width: `${(done / total) * 100}%` }}
+                    />
+                  </div>
+                  <span className={`text-xs font-medium ${done === total ? "text-success" : "text-text-disabled"}`}>
+                    {Math.round((done / total) * 100)}%
+                  </span>
+                </div>
+              );
+            })()}
+
+            <div className="space-y-1">
+              {form.checklist
+                .sort((a, b) => a.order - b.order)
+                .map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-2 group py-1 px-2 rounded-lg hover:bg-bg-card transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={item.completed}
+                      onChange={() => {
+                        setForm((prev) => ({
+                          ...prev,
+                          checklist: prev.checklist.map((ci, i) =>
+                            i === idx ? { ...ci, completed: !ci.completed } : ci,
+                          ),
+                        }));
+                      }}
+                      className="w-4 h-4 rounded border-border text-brand focus:ring-brand cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      value={item.text}
+                      onChange={(e) => {
+                        setForm((prev) => ({
+                          ...prev,
+                          checklist: prev.checklist.map((ci, i) =>
+                            i === idx ? { ...ci, text: e.target.value } : ci,
+                          ),
+                        }));
+                      }}
+                      className={`flex-1 text-sm bg-transparent border-0 outline-none ${
+                        item.completed ? "line-through text-text-disabled" : "text-text-primary"
+                      }`}
+                    />
+                    <button
+                      onClick={() => {
+                        setForm((prev) => ({
+                          ...prev,
+                          checklist: prev.checklist.filter((_, i) => i !== idx),
+                        }));
+                      }}
+                      className="p-1 text-text-disabled hover:text-danger transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+            </div>
+
+            <div className="flex items-center gap-2 mt-2">
+              <Plus size={16} className="text-text-disabled" />
               <input
-                type="date"
-                className="w-full border border-border bg-bg-card text-text-primary rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand transition-colors"
-                value={form.deadline}
-                onChange={(e) => setForm({ ...form, deadline: e.target.value })}
+                type="text"
+                value={newChecklistItem}
+                onChange={(e) => setNewChecklistItem(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newChecklistItem.trim()) {
+                    e.preventDefault();
+                    setForm((prev) => ({
+                      ...prev,
+                      checklist: [
+                        ...prev.checklist,
+                        { text: newChecklistItem.trim(), completed: false, order: prev.checklist.length },
+                      ],
+                    }));
+                    setNewChecklistItem("");
+                  }
+                }}
+                placeholder="Add an item..."
+                className="flex-1 text-sm bg-transparent border-0 outline-none placeholder:text-text-disabled text-text-primary"
               />
             </div>
           </div>
         </div>
-
-        {/* Footer */}
-        <div className="flex gap-3 px-6 py-4 border-t border-border">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2.5 border border-border rounded-lg text-sm text-text-secondary hover:bg-bg-card transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="flex-1 bg-brand text-white px-4 py-2.5 rounded-lg hover:bg-brand-hover disabled:opacity-50 text-sm font-medium transition-colors"
-          >
-            {saving ? "Creating..." : "Create Card"}
-          </button>
-        </div>
       </div>
-    </div>
+    </>
   );
 }

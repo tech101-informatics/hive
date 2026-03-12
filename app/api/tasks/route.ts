@@ -74,11 +74,18 @@ export async function POST(req: NextRequest) {
     projectId: String(body.projectId),
     taskId: String(task._id),
     assignees: task.assignees?.length ? task.assignees : undefined,
+    priority: task.priority,
+    status: task.status,
+    deadline: task.deadline ? task.deadline.toISOString() : undefined,
+    labels: task.labels?.length ? task.labels : undefined,
   }, slackMap);
 
   if (slackThreadTs) {
     await Task.findByIdAndUpdate(task._id, { slackThreadTs });
     task.slackThreadTs = slackThreadTs;
+    console.log(`[Task Created] slackThreadTs saved: ${slackThreadTs} for task ${task._id}`);
+  } else {
+    console.warn(`[Task Created] No slackThreadTs returned — thread replies won't work for task ${task._id}`);
   }
 
   await logActivity({

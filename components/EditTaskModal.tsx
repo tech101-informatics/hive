@@ -23,6 +23,7 @@ import {
   History,
 } from "lucide-react";
 import { RichTextEditor } from "@/components/RichTextEditor";
+import { AssigneeDropdown, MemberAvatar } from "@/components/AssigneeDropdown";
 
 interface ChecklistItem {
   _id?: string;
@@ -134,10 +135,8 @@ export function EditTaskModal({
   const [dirty, setDirty] = useState(false);
   const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
   const priorityDropdownRef = useRef<HTMLDivElement>(null);
-  const [showAssigneeDropdown, setShowAssigneeDropdown] = useState(false);
   const [showLabelDropdown, setShowLabelDropdown] = useState(false);
   const [labelSearch, setLabelSearch] = useState("");
-  const assigneeDropdownRef = useRef<HTMLDivElement>(null);
   const labelDropdownRef = useRef<HTMLDivElement>(null);
 
   const [showFields, setShowFields] = useState(true);
@@ -228,13 +227,6 @@ export function EditTaskModal({
         setShowPriorityDropdown(false);
       }
       if (
-        showAssigneeDropdown &&
-        assigneeDropdownRef.current &&
-        !assigneeDropdownRef.current.contains(e.target as Node)
-      ) {
-        setShowAssigneeDropdown(false);
-      }
-      if (
         showLabelDropdown &&
         labelDropdownRef.current &&
         !labelDropdownRef.current.contains(e.target as Node)
@@ -245,7 +237,7 @@ export function EditTaskModal({
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [showPriorityDropdown, showAssigneeDropdown, showLabelDropdown]);
+  }, [showPriorityDropdown, showLabelDropdown]);
 
   const handleClose = () => {
     setOpen(false);
@@ -375,9 +367,9 @@ export function EditTaskModal({
       .toUpperCase()
       .slice(0, 2);
 
-  const getMemberAvatar = (name: string) =>
+  const getMemberAvatar = (name: string): string | undefined =>
     members.find((m) => m.name === name)?.avatar ||
-    (name === session?.user?.name ? session?.user?.image : undefined);
+    (name === session?.user?.name ? session?.user?.image ?? undefined : undefined);
 
   const Avatar = ({
     name,
@@ -391,22 +383,16 @@ export function EditTaskModal({
     textSize?: string;
     bg?: string;
     color?: string;
-  }) => {
-    const src = getMemberAvatar(name);
-    return src ? (
-      <img
-        src={src}
-        alt={name}
-        className={`${size} rounded-full flex-shrink-0`}
-      />
-    ) : (
-      <span
-        className={`${size} rounded-full ${bg} flex items-center justify-center ${color} ${textSize} font-bold flex-shrink-0`}
-      >
-        {initials(name)}
-      </span>
-    );
-  };
+  }) => (
+    <MemberAvatar
+      name={name}
+      avatar={getMemberAvatar(name)}
+      size={size}
+      textSize={textSize}
+      bg={bg}
+      color={color}
+    />
+  );
 
   const timeAgo = (date: string) => {
     const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
@@ -626,114 +612,14 @@ export function EditTaskModal({
                     <User size={15} />
                     <span>Assignees</span>
                   </div>
-                  <div className="flex-1 relative" ref={assigneeDropdownRef}>
-                    <div className="flex flex-wrap gap-1.5 mb-1">
-                      {form.assignees.map((name) => (
-                        <span
-                          key={name}
-                          className="inline-flex items-center gap-1 text-xs p-1 rounded-full bg-brand-subtle text-brand font-medium"
-                        >
-                          <Avatar
-                            name={name}
-                            size="w-5 h-5"
-                            textSize="text-xs"
-                            bg="bg-brand-subtle"
-                          />
-                          {name}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updated = form.assignees.filter(
-                                (a) => a !== name,
-                              );
-                              setForm((prev) => ({
-                                ...prev,
-                                assignees: updated,
-                              }));
-                              autoSave({ assignees: updated });
-                            }}
-                            className="hover:text-danger transition-colors"
-                          >
-                            <X size={10} />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowAssigneeDropdown((p) => !p)}
-                      className="text-sm text-text-disabled hover:text-brand transition-colors flex items-center gap-1"
-                    >
-                      <Plus size={12} /> Add assignee
-                    </button>
-                    {showAssigneeDropdown && (
-                      <div className="absolute top-full left-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-56 max-h-48 overflow-y-auto py-1">
-                        {/* Assign myself option */}
-                        {session?.user?.name &&
-                          !form.assignees.includes(session.user.name) &&
-                          !members.some(
-                            (m) => m.name === session.user?.name,
-                          ) && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updated = [
-                                  ...form.assignees,
-                                  session.user!.name!,
-                                ];
-                                setForm((prev) => ({
-                                  ...prev,
-                                  assignees: updated,
-                                }));
-                                autoSave({ assignees: updated });
-                                setShowAssigneeDropdown(false);
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-brand hover:bg-bg-surface transition-colors text-left border-b border-border"
-                            >
-                              <Avatar
-                                name={session.user.name}
-                                size="w-5 h-5"
-                                bg="bg-brand"
-                                color="text-white"
-                              />
-                              {session.user.name} (me)
-                            </button>
-                          )}
-                        {members
-                          .filter((m) => !form.assignees.includes(m.name))
-                          .map((m) => (
-                            <button
-                              key={m._id}
-                              type="button"
-                              onClick={() => {
-                                const updated = [...form.assignees, m.name];
-                                setForm((prev) => ({
-                                  ...prev,
-                                  assignees: updated,
-                                }));
-                                autoSave({ assignees: updated });
-                                setShowAssigneeDropdown(false);
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-surface transition-colors text-left"
-                            >
-                              <Avatar name={m.name} />
-                              {m.name}
-                            </button>
-                          ))}
-                        {members.filter((m) => !form.assignees.includes(m.name))
-                          .length === 0 &&
-                          !(
-                            session?.user?.name &&
-                            !form.assignees.includes(session.user.name) &&
-                            !members.some((m) => m.name === session.user?.name)
-                          ) && (
-                            <p className="px-3 py-2 text-xs text-text-disabled">
-                              All members assigned
-                            </p>
-                          )}
-                      </div>
-                    )}
-                  </div>
+                  <AssigneeDropdown
+                    members={members}
+                    selected={form.assignees}
+                    onChange={(updated) => {
+                      setForm((prev) => ({ ...prev, assignees: updated }));
+                      autoSave({ assignees: updated });
+                    }}
+                  />
                 </div>
 
                 {/* Deadline */}

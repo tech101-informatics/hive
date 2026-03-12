@@ -80,6 +80,9 @@ export async function PUT(
   // Build slack map for tagging
   const slackMap = await buildSlackMap();
   const threadTs = task.slackThreadTs || undefined;
+  console.log(`[Task Update] task=${tid} slackThreadTs="${task.slackThreadTs || ""}" threadTs=${threadTs || "NONE"} bodyKeys=${Object.keys(body).join(",")}`);
+
+  let notified = false;
 
   if (body.status && previousStatus !== body.status) {
     await sendSlackNotification({
@@ -93,6 +96,7 @@ export async function PUT(
       changedBy: userName,
       assignees: task.assignees || [],
     }, slackMap, threadTs);
+    notified = true;
   }
 
   if (
@@ -110,6 +114,7 @@ export async function PUT(
         assignees: newlyAdded,
         assignedBy: userName,
       }, slackMap, threadTs);
+      notified = true;
     }
   }
 
@@ -132,6 +137,7 @@ export async function PUT(
         assignees: task.assignees,
         changedBy: userName,
       }, slackMap, threadTs);
+      notified = true;
     }
   }
 
@@ -148,6 +154,7 @@ export async function PUT(
       changedBy: userName,
       assignees: task.assignees,
     }, slackMap, threadTs);
+    notified = true;
   }
 
   // Labels changed — notify assignees
@@ -165,6 +172,20 @@ export async function PUT(
       changedBy: userName,
       assignees: task.assignees,
     }, slackMap, threadTs);
+    notified = true;
+  }
+
+  // PR or branch linked — post to thread even though there's no specific SlackEvent type
+  if (threadTs && !notified) {
+    const changes: string[] = [];
+    if (body.pr && body.pr !== oldTask.pr) changes.push(`PR: ${body.pr}`);
+    if (body.branch && body.branch !== oldTask.branch) changes.push(`Branch: \`${body.branch}\``);
+    if (body.title && body.title !== oldTask.title) changes.push(`Title: *${body.title}*`);
+
+    if (changes.length > 0) {
+      const { postUpdateToThread } = await import("@/lib/slack");
+      await postUpdateToThread(threadTs, task.title, projectName, userName, changes);
+    }
   }
 
   // Activity logging

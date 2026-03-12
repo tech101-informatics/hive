@@ -3,7 +3,8 @@ import crypto from "crypto";
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL || "";
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN || "";
 const SLACK_CHANNEL_ID = process.env.SLACK_CHANNEL_ID || "";
-const APP_URL = process.env.APP_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
+const APP_URL =
+  process.env.APP_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
 
 // --------------- signature verification ---------------
 
@@ -35,23 +36,94 @@ export function verifySlackRequest(
 // --------------- types ---------------
 
 export type SlackEvent =
-  | { type: "task_created"; taskTitle: string; projectName: string; projectId: string; taskId: string; assignees?: string[] }
-  | { type: "task_status_changed"; taskTitle: string; projectName: string; projectId: string; taskId: string; from: string; to: string; changedBy?: string; assignees?: string[] }
-  | { type: "task_assigned"; taskTitle: string; projectName: string; projectId: string; taskId: string; assignees: string[]; assignedBy?: string }
-  | { type: "task_deadline"; taskTitle: string; projectName: string; projectId: string; taskId: string; deadline: string; assignees?: string[]; changedBy?: string }
-  | { type: "task_priority_changed"; taskTitle: string; projectName: string; projectId: string; taskId: string; from: string; to: string; changedBy?: string; assignees?: string[] }
-  | { type: "task_labels_changed"; taskTitle: string; projectName: string; projectId: string; taskId: string; added: string[]; removed: string[]; changedBy?: string; assignees?: string[] }
-  | { type: "comment_added"; taskTitle: string; projectName: string; projectId: string; taskId: string; author: string; assignees?: string[] }
-  | { type: "project_created"; projectName: string; projectId: string; createdBy?: string }
+  | {
+      type: "task_created";
+      taskTitle: string;
+      projectName: string;
+      projectId: string;
+      taskId: string;
+      assignees?: string[];
+      priority?: string;
+      status?: string;
+      deadline?: string;
+      labels?: string[];
+    }
+  | {
+      type: "task_status_changed";
+      taskTitle: string;
+      projectName: string;
+      projectId: string;
+      taskId: string;
+      from: string;
+      to: string;
+      changedBy?: string;
+      assignees?: string[];
+    }
+  | {
+      type: "task_assigned";
+      taskTitle: string;
+      projectName: string;
+      projectId: string;
+      taskId: string;
+      assignees: string[];
+      assignedBy?: string;
+    }
+  | {
+      type: "task_deadline";
+      taskTitle: string;
+      projectName: string;
+      projectId: string;
+      taskId: string;
+      deadline: string;
+      assignees?: string[];
+      changedBy?: string;
+    }
+  | {
+      type: "task_priority_changed";
+      taskTitle: string;
+      projectName: string;
+      projectId: string;
+      taskId: string;
+      from: string;
+      to: string;
+      changedBy?: string;
+      assignees?: string[];
+    }
+  | {
+      type: "task_labels_changed";
+      taskTitle: string;
+      projectName: string;
+      projectId: string;
+      taskId: string;
+      added: string[];
+      removed: string[];
+      changedBy?: string;
+      assignees?: string[];
+    }
+  | {
+      type: "comment_added";
+      taskTitle: string;
+      projectName: string;
+      projectId: string;
+      taskId: string;
+      author: string;
+      assignees?: string[];
+    }
+  | {
+      type: "project_created";
+      projectName: string;
+      projectId: string;
+      createdBy?: string;
+    }
   | { type: "project_completed"; projectName: string; projectId: string };
 
-const STATUS_EMOJI: Record<string, string> = {
-  todo: "📋",
-  "in-progress": "⚙️",
-  "in-review": "👀",
-  done: "✅",
-  blocked: "🚫",
-  backlog: "📦",
+const STATUS_LABEL: Record<string, string> = {
+  todo: "[To Do]",
+  "in-progress": "[In Progress]",
+  "in-review": "[In Review]",
+  done: "[Done]",
+  blocked: "[Blocked]",
+  backlog: "[Backlog]",
 };
 
 // --------------- helpers ---------------
@@ -87,7 +159,10 @@ async function slackApiPost(endpoint: string, body: Record<string, unknown>) {
   return data;
 }
 
-async function postToChannel(text: string, threadTs?: string): Promise<string | undefined> {
+async function postToChannel(
+  text: string,
+  threadTs?: string,
+): Promise<string | undefined> {
   if (SLACK_BOT_TOKEN && SLACK_CHANNEL_ID) {
     const payload: Record<string, unknown> = {
       channel: SLACK_CHANNEL_ID,
@@ -95,10 +170,18 @@ async function postToChannel(text: string, threadTs?: string): Promise<string | 
       unfurl_links: false,
     };
     if (threadTs) payload.thread_ts = threadTs;
+    console.log(
+      "[Slack postToChannel]",
+      threadTs ? `thread_ts=${threadTs}` : "new message (no thread)",
+    );
     const data = await slackApiPost("chat.postMessage", payload);
+    if (data.ok) {
+      console.log("[Slack postToChannel] Success, ts:", data.ts);
+    }
     return data.ts as string | undefined;
   }
   if (SLACK_WEBHOOK_URL) {
+    console.log("[Slack postToChannel] Using webhook (no threading support)");
     const res = await fetch(SLACK_WEBHOOK_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -111,7 +194,9 @@ async function postToChannel(text: string, threadTs?: string): Promise<string | 
 
 export async function sendSlackDM(slackUserId: string, text: string) {
   if (!SLACK_BOT_TOKEN) return;
-  const openData = await slackApiPost("conversations.open", { users: slackUserId });
+  const openData = await slackApiPost("conversations.open", {
+    users: slackUserId,
+  });
   if (!openData.ok) return;
   await slackApiPost("chat.postMessage", {
     channel: openData.channel.id,
@@ -133,7 +218,10 @@ async function sendDMsToMembers(
       console.log(`[Slack DM] Sending to "${name}" → ${slackId}`);
       await sendSlackDM(slackId, text);
     } else {
-      console.log(`[Slack DM] No slackId found for "${name}" — available keys:`, Array.from(slackMap.keys()).join(", "));
+      console.log(
+        `[Slack DM] No slackId found for "${name}" — available keys:`,
+        Array.from(slackMap.keys()).join(", "),
+      );
     }
   }
 }
@@ -165,7 +253,8 @@ export async function fetchSlackUsers(): Promise<SlackUser[]> {
       break;
     }
     for (const member of data.members || []) {
-      if (member.deleted || member.is_bot || member.id === "USLACKBOT") continue;
+      if (member.deleted || member.is_bot || member.id === "USLACKBOT")
+        continue;
       const email = member.profile?.email?.toLowerCase();
       if (email) {
         users.push({
@@ -189,39 +278,76 @@ export async function sendSlackNotification(
   threadTs?: string,
 ): Promise<string | undefined> {
   if (!SLACK_WEBHOOK_URL && !SLACK_BOT_TOKEN) {
-    console.log("[Slack] Not configured — SLACK_WEBHOOK_URL and SLACK_BOT_TOKEN both empty");
+    console.log(
+      "[Slack] Not configured — SLACK_WEBHOOK_URL and SLACK_BOT_TOKEN both empty",
+    );
     return undefined;
   }
   const map = slackMap || new Map<string, string>();
-  console.log("[Slack] Sending notification:", event.type, "| map size:", map.size, "| threadTs:", threadTs || "none");
+  console.log(
+    "[Slack] Sending notification:",
+    event.type,
+    "| map size:",
+    map.size,
+    "| threadTs:",
+    threadTs || "none",
+  );
 
   try {
     switch (event.type) {
       case "task_created": {
         const link = taskLink(event.projectId, event.taskId, event.taskTitle);
-        const assigneeText = event.assignees?.length
-          ? ` → assigned to ${tagUsers(event.assignees, map)}`
-          : "";
-        const ts = await postToChannel(`🆕 *New Card:* ${link} in *${event.projectName}*${assigneeText}`);
-        // DM all assignees (including creator if they assigned themselves)
+        const assignees = event.assignees?.length
+          ? tagUsers(event.assignees, map)
+          : "Unassigned";
+        const priority = event.priority
+          ? event.priority.charAt(0).toUpperCase() + event.priority.slice(1)
+          : "Medium";
+        const status = event.status
+          ? STATUS_LABEL[event.status] || event.status
+          : "[To Do]";
+        const deadline = event.deadline
+          ? new Date(event.deadline).toLocaleDateString("en-IN", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })
+          : "No deadline";
+        const labels = event.labels?.length ? event.labels.join(", ") : null;
+
+        let channelMsg =
+          `*New Card:* ${link}\n` +
+          `Project: *${event.projectName}*\n` +
+          `Assigned to: ${assignees}\n` +
+          `Priority: *${priority}*  |  Status: ${status}  |  Due: ${deadline}`;
+        if (labels) channelMsg += `\nLabels: ${labels}`;
+
+        const ts = await postToChannel(channelMsg);
+
         if (event.assignees?.length) {
-          await sendDMsToMembers(
-            event.assignees,
-            `🆕 You've been assigned to a new card: ${link} in *${event.projectName}*`,
-            map,
-          );
+          let dmMsg =
+            `You've been assigned to a new card: ${link}\n` +
+            `Project: *${event.projectName}*\n` +
+            `Priority: *${priority}*  |  Due: ${deadline}`;
+          if (labels) dmMsg += `\nLabels: ${labels}`;
+          await sendDMsToMembers(event.assignees, dmMsg, map);
         }
         return ts;
       }
       case "task_status_changed": {
         const link = taskLink(event.projectId, event.taskId, event.taskTitle);
-        const emoji = STATUS_EMOJI[event.to] ?? "🔄";
-        const byText = event.changedBy ? ` by ${tagUser(event.changedBy, map)}` : "";
-        await postToChannel(`${emoji} *Status:* ${link} moved *${event.from}* → *${event.to}*${byText}`, threadTs);
+        const label = STATUS_LABEL[event.to] ?? "[Updated]";
+        const byText = event.changedBy
+          ? ` by ${tagUser(event.changedBy, map)}`
+          : "";
+        await postToChannel(
+          `${label} *Status:* ${link} moved *${event.from}* -> *${event.to}*${byText}`,
+          threadTs,
+        );
         if (event.assignees?.length) {
           await sendDMsToMembers(
             event.assignees,
-            `${emoji} *Status update:* ${link} moved *${event.from}* → *${event.to}*${byText}`,
+            `${label} *Status update:* ${link} moved *${event.from}* -> *${event.to}*${byText}`,
             map,
           );
         }
@@ -229,23 +355,31 @@ export async function sendSlackNotification(
       }
       case "task_assigned": {
         const link = taskLink(event.projectId, event.taskId, event.taskTitle);
-        const byText = event.assignedBy ? ` by ${tagUser(event.assignedBy, map)}` : "";
-        await postToChannel(`👤 *Assigned:* ${link} → ${tagUsers(event.assignees, map)}${byText}`, threadTs);
+        const byText = event.assignedBy
+          ? ` by ${tagUser(event.assignedBy, map)}`
+          : "";
+        await postToChannel(
+          `*Assigned:* ${link} -> ${tagUsers(event.assignees, map)}${byText}`,
+          threadTs,
+        );
         // DM all assignees including the person who assigned (self-assign should notify)
         await sendDMsToMembers(
           event.assignees,
-          `👤 You've been assigned to ${link} in *${event.projectName}*${byText}`,
+          `You've been assigned to ${link} in *${event.projectName}*${byText}`,
           map,
         );
         break;
       }
       case "task_deadline": {
         const link = taskLink(event.projectId, event.taskId, event.taskTitle);
-        await postToChannel(`⏰ *Deadline:* ${link} in *${event.projectName}* is due on *${event.deadline}*`, threadTs);
+        await postToChannel(
+          `*Deadline:* ${link} in *${event.projectName}* is due on *${event.deadline}*`,
+          threadTs,
+        );
         if (event.assignees?.length) {
           await sendDMsToMembers(
             event.assignees,
-            `⏰ *Deadline update:* ${link} is due on *${event.deadline}*`,
+            `*Deadline update:* ${link} is due on *${event.deadline}*`,
             map,
           );
         }
@@ -253,12 +387,17 @@ export async function sendSlackNotification(
       }
       case "task_priority_changed": {
         const link = taskLink(event.projectId, event.taskId, event.taskTitle);
-        const byText = event.changedBy ? ` by ${tagUser(event.changedBy, map)}` : "";
-        await postToChannel(`🔺 *Priority:* ${link} changed *${event.from}* → *${event.to}*${byText}`, threadTs);
+        const byText = event.changedBy
+          ? ` by ${tagUser(event.changedBy, map)}`
+          : "";
+        await postToChannel(
+          `*Priority:* ${link} changed *${event.from}* -> *${event.to}*${byText}`,
+          threadTs,
+        );
         if (event.assignees?.length) {
           await sendDMsToMembers(
             event.assignees,
-            `🔺 *Priority update:* ${link} changed *${event.from}* → *${event.to}*${byText}`,
+            `*Priority update:* ${link} changed *${event.from}* -> *${event.to}*${byText}`,
             map,
           );
         }
@@ -266,16 +405,22 @@ export async function sendSlackNotification(
       }
       case "task_labels_changed": {
         const link = taskLink(event.projectId, event.taskId, event.taskTitle);
-        const byText = event.changedBy ? ` by ${tagUser(event.changedBy, map)}` : "";
+        const byText = event.changedBy
+          ? ` by ${tagUser(event.changedBy, map)}`
+          : "";
         const parts: string[] = [];
         if (event.added.length) parts.push(`added *${event.added.join(", ")}*`);
-        if (event.removed.length) parts.push(`removed *${event.removed.join(", ")}*`);
+        if (event.removed.length)
+          parts.push(`removed *${event.removed.join(", ")}*`);
         const changeText = parts.join(", ");
-        await postToChannel(`🏷️ *Labels:* ${link} — ${changeText}${byText}`, threadTs);
+        await postToChannel(
+          `*Labels:* ${link} -- ${changeText}${byText}`,
+          threadTs,
+        );
         if (event.assignees?.length) {
           await sendDMsToMembers(
             event.assignees,
-            `🏷️ *Labels updated:* ${link} — ${changeText}${byText}`,
+            `*Labels updated:* ${link} -- ${changeText}${byText}`,
             map,
           );
         }
@@ -283,11 +428,14 @@ export async function sendSlackNotification(
       }
       case "comment_added": {
         const link = taskLink(event.projectId, event.taskId, event.taskTitle);
-        await postToChannel(`💬 *Comment* on ${link} by ${tagUser(event.author, map)}`, threadTs);
+        await postToChannel(
+          `*Comment* on ${link} by ${tagUser(event.author, map)}`,
+          threadTs,
+        );
         if (event.assignees?.length) {
           await sendDMsToMembers(
             event.assignees,
-            `💬 ${tagUser(event.author, map)} commented on ${link}`,
+            `${tagUser(event.author, map)} commented on ${link}`,
             map,
             event.author,
           );
@@ -295,12 +443,14 @@ export async function sendSlackNotification(
         break;
       }
       case "project_created": {
-        const byText = event.createdBy ? ` by ${tagUser(event.createdBy, map)}` : "";
-        await postToChannel(`🚀 *New Board:* *${event.projectName}*${byText}`);
+        const byText = event.createdBy
+          ? ` by ${tagUser(event.createdBy, map)}`
+          : "";
+        await postToChannel(`*New Board:* *${event.projectName}*${byText}`);
         break;
       }
       case "project_completed": {
-        await postToChannel(`🎉 *Board Completed:* *${event.projectName}*`);
+        await postToChannel(`*Board Completed:* *${event.projectName}*`);
         break;
       }
     }
@@ -322,7 +472,22 @@ export async function buildSlackMap(): Promise<Map<string, string>> {
     map.set(m.name, m.slackUserId);
     map.set(m.email.toLowerCase(), m.slackUserId);
   }
-  console.log("[SlackMap] Built map with", map.size, "entries from", members.length, "members:",
-    members.map((m) => `${m.name} (${m.email}) → ${m.slackUserId}`).join(", "));
   return map;
+}
+
+// --------------- generic thread update ---------------
+
+/** Post a generic update message to an existing Slack thread */
+export async function postUpdateToThread(
+  threadTs: string,
+  taskTitle: string,
+  projectName: string,
+  changedBy: string,
+  changes: string[],
+) {
+  const text =
+    `*${taskTitle}* updated by *${changedBy}*\n` +
+    `Project: *${projectName}*\n\n` +
+    changes.join("\n");
+  await postToChannel(text, threadTs);
 }
