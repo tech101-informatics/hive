@@ -1,14 +1,22 @@
-export { auth as middleware } from "@/auth";
+import { auth } from "@/auth";
+import { NextResponse } from "next/server";
+
+export default auth((req) => {
+  const { pathname } = req.nextUrl;
+
+  // Allow Slack commands through without auth
+  if (pathname.startsWith("/api/slack")) {
+    return NextResponse.next();
+  }
+
+  // Redirect to login if not authenticated
+  if (!req.auth) {
+    return Response.redirect(new URL("/login", req.url));
+  }
+});
 
 export const config = {
   matcher: [
-    /*
-     * Match all paths except:
-     * - /login, /auth-error
-     * - /api/auth (NextAuth routes)
-     * - /_next (Next.js internals)
-     * - /favicon.ico, static files
-     */
     "/((?!login|auth-error|api/auth|_next|favicon\\.ico|.*\\.(?:png|jpg|svg|ico)$).*)",
   ],
 };

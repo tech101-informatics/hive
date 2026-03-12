@@ -5,37 +5,44 @@ import { Project } from "@/models/Project";
 import { Member } from "@/models/Member";
 import { verifySlackRequest, sendSlackDM } from "@/lib/slack";
 
-const APP_URL = process.env.APP_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
+const APP_URL =
+  process.env.APP_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
 
 export async function POST(req: NextRequest) {
   // ── Read raw body for signature verification ───────────────
-  const rawBody = await req.text();
-
-  const signature = req.headers.get("x-slack-signature") || "";
-  const timestamp = req.headers.get("x-slack-request-timestamp") || "";
-
-  const signingSecret = process.env.SLACK_SIGNING_SECRET;
-  if (signingSecret) {
-    const isValid = verifySlackRequest(signingSecret, signature, timestamp, rawBody);
-    if (!isValid) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
-
-  // ── Parse URL-encoded Slack payload ───────────────────────
-  const params = new URLSearchParams(rawBody);
-  const text = params.get("text")?.trim() || "";
-  const threadTs = params.get("thread_ts") || "";
-  const channelId = params.get("channel_id") || "";
-  const userId = params.get("user_id") || "";
-  const userName = params.get("user_name") || "";
-
-  const [subcommand = "", ...rest] = text.split(" ");
-  const arg = rest.join(" ").trim();
-
-  await connectDB();
 
   try {
+    const rawBody = await req.text();
+
+    const signature = req.headers.get("x-slack-signature") || "";
+    const timestamp = req.headers.get("x-slack-request-timestamp") || "";
+
+    const signingSecret = process.env.SLACK_SIGNING_SECRET;
+    if (signingSecret) {
+      const isValid = verifySlackRequest(
+        signingSecret,
+        signature,
+        timestamp,
+        rawBody,
+      );
+      if (!isValid) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+    }
+
+    // ── Parse URL-encoded Slack payload ───────────────────────
+    const params = new URLSearchParams(rawBody);
+    const text = params.get("text")?.trim() || "";
+    const threadTs = params.get("thread_ts") || "";
+    const channelId = params.get("channel_id") || "";
+    const userId = params.get("user_id") || "";
+    const userName = params.get("user_name") || "";
+
+    const [subcommand = "", ...rest] = text.split(" ");
+    const arg = rest.join(" ").trim();
+
+    await connectDB();
+
     switch (subcommand.toLowerCase()) {
       case "status":
         return await handleStatus();
@@ -53,19 +60,19 @@ export async function POST(req: NextRequest) {
         return await handlePr({ arg, threadTs, channelId, userId });
       default:
         return slackEphemeral(
-          `🐝 *Hive Commands*\n\n` +
-          `\`/hive status\` — today's project summary\n` +
-          `\`/hive my-tasks\` — your open tasks\n` +
-          `\`/hive project [name]\` — tasks in a project\n` +
-          `\`/hive overdue\` — all overdue tasks\n` +
-          `\`/hive create [title]\` — create a new task\n` +
-          `\`/hive done [title]\` — mark a task as done\n` +
-          `\`/hive pr [url]\` — link a PR to this task thread`,
+          `*Hive Commands*\n\n` +
+            `\`/hive status\` -- today's project summary\n` +
+            `\`/hive my-tasks\` -- your open tasks\n` +
+            `\`/hive project [name]\` -- tasks in a project\n` +
+            `\`/hive overdue\` -- all overdue tasks\n` +
+            `\`/hive create [title]\` -- create a new task\n` +
+            `\`/hive done [title]\` -- mark a task as done\n` +
+            `\`/hive pr [url]\` -- link a PR to this task thread`,
         );
     }
   } catch (err) {
     console.error("[/hive] Command error:", err);
-    return slackEphemeral("❌ Something went wrong. Please try again.");
+    return slackEphemeral("Something went wrong. Please try again.");
   }
 }
 
@@ -95,10 +102,11 @@ async function handleStatus() {
   });
 
   let text =
-    `📊 *Hive Status — ${dateStr}*\n\n` +
-    `✅ Completed today: *${completedToday}*\n` +
-    `⚙️  In Progress: *${inProgress}*\n` +
-    `⚠️  Overdue: *${overdueTasks.length}*\n`;
+    `*Hive Status -- ${dateStr}*\n` +
+    `-------------------------------------------\n` +
+    `Completed today:  *${completedToday}*\n` +
+    `In Progress:  *${inProgress}*\n` +
+    `Overdue:  *${overdueTasks.length}*\n`;
 
   if (overdueTasks.length > 0) {
     text += `\n*Overdue Tasks:*\n`;
@@ -106,10 +114,20 @@ async function handleStatus() {
       const daysLate = Math.floor(
         (Date.now() - new Date(t.deadline).getTime()) / 86400000,
       );
-      const assigneeText = t.assignees?.length ? t.assignees.join(", ") : "Unassigned";
+      const dueDate = new Date(t.deadline).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+      });
+      const assigneeText = t.assignees?.length
+        ? t.assignees.join(", ")
+        : "Unassigned";
+      const project = t.projectId?.name || "Unknown Project";
+      const taskLink = t.projectId?._id
+        ? `${APP_URL}/projects/${t.projectId._id}/cards/${t._id}`
+        : `${APP_URL}/projects`;
       text +=
-        `🔴 "${t.title}" — ${assigneeText} ` +
-        `(${daysLate}d late) — ${t.projectId?.name || "Unknown Project"}\n`;
+        `- <${taskLink}|${t.title}> -- ${assigneeText}\n` +
+        `   ${project}  |  Due: ${dueDate}  |  *${daysLate}d overdue*\n`;
     });
   }
 
@@ -132,26 +150,34 @@ async function handleMyTasks(userId: string, userName: string) {
     .lean();
 
   if (tasks.length === 0) {
-    return slackEphemeral(`✅ No open tasks for you, <@${userId}>! You're all caught up.`);
+    return slackEphemeral(
+      `No open tasks for you, <@${userId}>. You're all caught up.`,
+    );
   }
 
-  let text = `📋 *Your Open Tasks, <@${userId}>* (${tasks.length})\n\n`;
+  let text = `*Your Open Tasks, <@${userId}>* (${tasks.length})\n\n`;
 
   tasks.forEach((t: any) => {
     const deadline = t.deadline
-      ? `📅 ${new Date(t.deadline).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`
+      ? new Date(t.deadline).toLocaleDateString("en-IN", { day: "numeric", month: "short" })
       : "No deadline";
     const priority =
-      t.priority === "high" ? "🔴" :
-      t.priority === "medium" ? "🟡" : "🟢";
+      t.priority === "high" ? "[HIGH]" : t.priority === "medium" ? "[MED]" : "[LOW]";
     const statusLabel =
-      t.status === "in-progress" ? "In Progress" :
-      t.status === "in-review" ? "In Review" :
-      t.status === "todo" ? "To Do" : t.status;
+      t.status === "in-progress"
+        ? "In Progress"
+        : t.status === "in-review"
+          ? "In Review"
+          : t.status === "todo"
+            ? "To Do"
+            : t.status;
     const project = t.projectId?.name || "No Project";
+    const taskLink = t.projectId?._id
+      ? `${APP_URL}/projects/${t.projectId._id}/cards/${t._id}`
+      : `${APP_URL}/projects`;
 
-    text += `${priority} *${t.title}*\n`;
-    text += `   📁 ${project}  •  ${statusLabel}  •  ${deadline}\n\n`;
+    text += `${priority} <${taskLink}|${t.title}>\n`;
+    text += `   ${project}  |  ${statusLabel}  |  Due: ${deadline}\n\n`;
   });
 
   return slackEphemeral(text);
@@ -162,7 +188,9 @@ async function handleMyTasks(userId: string, userName: string) {
 // ─────────────────────────────────────────────────────────────
 async function handleProject(name: string) {
   if (!name) {
-    return slackEphemeral("Usage: `/hive project [project name]`\nExample: `/hive project Website Redesign`");
+    return slackEphemeral(
+      "Usage: `/hive project [project name]`\nExample: `/hive project Website Redesign`",
+    );
   }
 
   const project = await Project.findOne({
@@ -170,7 +198,7 @@ async function handleProject(name: string) {
   }).lean();
 
   if (!project) {
-    return slackEphemeral(`❌ No project found matching "*${name}*".`);
+    return slackEphemeral(`No project found matching "*${name}*".`);
   }
 
   const tasks = await Task.find({ projectId: (project as any)._id }).lean();
@@ -187,26 +215,32 @@ async function handleProject(name: string) {
   const progressBar = buildProgressBar(pct);
 
   let text =
-    `📁 *${(project as any).name}*\n` +
+    `*${(project as any).name}*\n` +
     `${progressBar} ${pct}% (${grouped.done.length}/${total} tasks)\n\n` +
-    `📋 To Do: *${grouped.todo.length}*  ` +
-    `⚙️ In Progress: *${grouped["in-progress"].length}*  ` +
-    `👀 In Review: *${grouped["in-review"].length}*  ` +
-    `✅ Done: *${grouped.done.length}*\n`;
+    `To Do: *${grouped.todo.length}*  ` +
+    `In Progress: *${grouped["in-progress"].length}*  ` +
+    `In Review: *${grouped["in-review"].length}*  ` +
+    `Done: *${grouped.done.length}*\n`;
 
   if (grouped["in-progress"].length > 0) {
     text += `\n*In Progress:*\n`;
     grouped["in-progress"].forEach((t: any) => {
-      const assigneeText = t.assignees?.length ? t.assignees.join(", ") : "Unassigned";
-      text += `• ${t.title} — ${assigneeText}\n`;
+      const assigneeText = t.assignees?.length
+        ? t.assignees.join(", ")
+        : "Unassigned";
+      const taskLink = `${APP_URL}/projects/${(project as any)._id}/cards/${t._id}`;
+      text += `- <${taskLink}|${t.title}> -- ${assigneeText}\n`;
     });
   }
 
   if (grouped["in-review"].length > 0) {
     text += `\n*In Review:*\n`;
     grouped["in-review"].forEach((t: any) => {
-      const assigneeText = t.assignees?.length ? t.assignees.join(", ") : "Unassigned";
-      text += `• ${t.title} — ${assigneeText}\n`;
+      const assigneeText = t.assignees?.length
+        ? t.assignees.join(", ")
+        : "Unassigned";
+      const taskLink = `${APP_URL}/projects/${(project as any)._id}/cards/${t._id}`;
+      text += `- <${taskLink}|${t.title}> -- ${assigneeText}\n`;
     });
   }
 
@@ -225,10 +259,10 @@ async function handleOverdue() {
     .lean();
 
   if (tasks.length === 0) {
-    return slackEphemeral("✅ No overdue tasks! Everything is on track. 🎉");
+    return slackEphemeral("No overdue tasks. Everything is on track.");
   }
 
-  let text = `⚠️ *Overdue Tasks (${tasks.length})*\n\n`;
+  let text = `*Overdue Tasks (${tasks.length})*\n\n`;
 
   tasks.forEach((t: any) => {
     const daysLate = Math.floor(
@@ -238,12 +272,16 @@ async function handleOverdue() {
       day: "numeric",
       month: "short",
     });
-    const assigneeText = t.assignees?.length ? t.assignees.join(", ") : "Unassigned";
+    const assigneeText = t.assignees?.length
+      ? t.assignees.join(", ")
+      : "Unassigned";
+    const project = t.projectId?.name || "Unknown";
+    const taskLink = t.projectId?._id
+      ? `${APP_URL}/projects/${t.projectId._id}/cards/${t._id}`
+      : `${APP_URL}/projects`;
     text +=
-      `🔴 *${t.title}*\n` +
-      `   📁 ${t.projectId?.name || "Unknown"}  •  ` +
-      `👤 ${assigneeText}  •  ` +
-      `Was due ${dueDate} (${daysLate}d ago)\n\n`;
+      `- <${taskLink}|${t.title}>\n` +
+      `   ${project}  |  ${assigneeText}  |  Due: ${dueDate}  |  *${daysLate}d overdue*\n\n`;
   });
 
   return slackEphemeral(text);
@@ -254,7 +292,9 @@ async function handleOverdue() {
 // ─────────────────────────────────────────────────────────────
 async function handleCreate(title: string) {
   if (!title) {
-    return slackEphemeral("Usage: `/hive create [task title]`\nExample: `/hive create Fix login bug`");
+    return slackEphemeral(
+      "Usage: `/hive create [task title]`\nExample: `/hive create Fix login bug`",
+    );
   }
 
   const task = await Task.create({
@@ -265,11 +305,10 @@ async function handleCreate(title: string) {
   });
 
   return slackEphemeral(
-    `✅ *Task created!*\n\n` +
-    `📌 *${task.title}*\n` +
-    `Status: To Do  •  Priority: Medium\n\n` +
-    `_Open Hive to assign it to a project and team member._\n` +
-    `↗️  ${APP_URL}/projects`,
+    `*Task created:* ${task.title}\n` +
+      `Status: To Do  |  Priority: Medium\n\n` +
+      `_Open Hive to assign it to a project and team member._\n` +
+      `${APP_URL}/projects`,
   );
 }
 
@@ -278,7 +317,9 @@ async function handleCreate(title: string) {
 // ─────────────────────────────────────────────────────────────
 async function handleDone(title: string) {
   if (!title) {
-    return slackEphemeral("Usage: `/hive done [task title]`\nExample: `/hive done Fix login bug`");
+    return slackEphemeral(
+      "Usage: `/hive done [task title]`\nExample: `/hive done Fix login bug`",
+    );
   }
 
   const task = await Task.findOneAndUpdate(
@@ -292,12 +333,12 @@ async function handleDone(title: string) {
 
   if (!task) {
     return slackEphemeral(
-      `❌ No open task found matching "*${title}*".\n` +
-      `_Check the spelling or use \`/hive my-tasks\` to see your tasks._`,
+      `No open task found matching "*${title}*".\n` +
+        `_Check the spelling or use \`/hive my-tasks\` to see your tasks._`,
     );
   }
 
-  return slackEphemeral(`✅ *"${task.title}"* marked as done! Great work! 🎉`);
+  return slackEphemeral(`*"${task.title}"* marked as done.`);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -316,29 +357,29 @@ async function handlePr({
 }) {
   if (!threadTs) {
     return slackEphemeral(
-      "⚠️ Run `/hive pr` inside a task's Slack thread, not in the main channel.\n" +
-      "_Each task posted by Hive has its own thread — run the command there._",
+      "Run `/hive pr` inside a task's Slack thread, not in the main channel.\n" +
+        "_Each task posted by Hive has its own thread — run the command there._",
     );
   }
 
   if (!arg) {
     return slackEphemeral(
       "Usage: `/hive pr [pull request URL]`\n" +
-      "Example: `/hive pr https://github.com/org/repo/pull/42`",
+        "Example: `/hive pr https://github.com/org/repo/pull/42`",
     );
   }
 
   if (!/^https?:\/\/.+/.test(arg)) {
     return slackEphemeral(
-      `❌ "${arg}" doesn't look like a valid URL. Please include https://`,
+      `"${arg}" doesn't look like a valid URL. Please include https://`,
     );
   }
 
   const task = await Task.findOne({ slackThreadTs: threadTs });
   if (!task) {
     return slackEphemeral(
-      "❌ No Hive task found for this thread.\n" +
-      "_Make sure you're running this inside a thread that was created by Hive._",
+      "No Hive task found for this thread.\n" +
+        "_Make sure you're running this inside a thread that was created by Hive._",
     );
   }
 
@@ -366,12 +407,12 @@ async function handlePr({
         channel: channelId,
         thread_ts: threadTs,
         text:
-          `🔀 *PR ${isUpdate ? "Updated" : "Linked"}* by <@${userId}>\n\n` +
-          `📌 *${task.title}*\n` +
-          `📁 Project: *${projectName}*\n` +
-          `🔁 Status: *${previousStatus}* → *in-review*\n\n` +
-          `🔗 Pull Request → ${arg}\n` +
-          `↗️  View Card → ${cardLink}`,
+          `*PR ${isUpdate ? "Updated" : "Linked"}* by <@${userId}>\n\n` +
+          `*<${cardLink}|${task.title}>*\n` +
+          `Project: *${projectName}*\n` +
+          `Status: *${previousStatus}* -> *in-review*\n\n` +
+          `Pull Request: ${arg}\n` +
+          `View Card: ${cardLink}`,
       }),
     });
   } catch (err) {
@@ -392,12 +433,12 @@ async function handlePr({
         try {
           await sendSlackDM(
             (assigneeMember as any).slackUserId,
-            `🔀 A PR has been ${isUpdate ? "updated" : "linked"} on your task by <@${userId}>.\n\n` +
-            `📌 *${task.title}*\n` +
-            `📁 Project: *${projectName}*\n` +
-            `🔁 Status moved to *in-review*\n\n` +
-            `🔗 PR → ${arg}\n` +
-            `↗️  View Card → ${cardLink}`,
+            `A PR has been ${isUpdate ? "updated" : "linked"} on your task by <@${userId}>.\n\n` +
+              `*<${cardLink}|${task.title}>*\n` +
+              `Project: *${projectName}*\n` +
+              `Status moved to *in-review*\n\n` +
+              `PR: ${arg}\n` +
+              `View Card: ${cardLink}`,
           );
         } catch (err) {
           console.error("[/hive pr] DM error:", err);
@@ -407,8 +448,8 @@ async function handlePr({
   }
 
   return slackEphemeral(
-    `✅ PR ${isUpdate ? "updated" : "linked"} on *"${task.title}"* ` +
-    `and status moved to *in-review*.`,
+    `PR ${isUpdate ? "updated" : "linked"} on *"${task.title}"* ` +
+      `and status moved to *in-review*.`,
   );
 }
 
