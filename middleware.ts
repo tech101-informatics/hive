@@ -4,8 +4,8 @@ import { NextResponse } from "next/server";
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
-  // Allow Slack commands through without auth
-  if (pathname.startsWith("/api/slack")) {
+  // Allow Slack commands and cron jobs through without auth
+  if (pathname.startsWith("/api/slack") || pathname.startsWith("/api/cron")) {
     return NextResponse.next();
   }
 
