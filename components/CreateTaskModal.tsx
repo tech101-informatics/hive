@@ -156,7 +156,7 @@ export function CreateTaskModal({ projectId, projectName, statuses, onClose, onC
         }`}
       >
         {/* Top bar */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-bg-card">
+        <div className="flex items-center justify-between px-6 py-3 bg-bg-card">
           <div className="flex items-center gap-2 text-sm">
             <span className="font-semibold text-text-primary">Create Card</span>
             <span className="text-text-disabled">&middot;</span>
@@ -192,8 +192,8 @@ export function CreateTaskModal({ projectId, projectName, statuses, onClose, onC
           {error && <p className="text-danger text-xs mb-2">{error}</p>}
 
           {/* On boards section */}
-          <div className="bg-bg-card border border-border rounded-xl mb-6 overflow-hidden mt-4">
-            <div className="px-4 py-2 border-b border-border bg-bg-surface/50">
+          <div className="bg-bg-card rounded-xl mb-6 overflow-hidden mt-4">
+            <div className="px-4 py-2 bg-bg-base/50">
               <span className="text-sm font-semibold text-text-primary">On boards (1)</span>
             </div>
             <div className="overflow-x-auto">
@@ -205,7 +205,7 @@ export function CreateTaskModal({ projectId, projectName, statuses, onClose, onC
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-t border-border-subtle">
+                  <tr className="border-t border-bg-base">
                     <td className="px-4 py-1">
                       <span className="text-text-primary font-medium">{projectName}</span>
                     </td>
@@ -226,7 +226,7 @@ export function CreateTaskModal({ projectId, projectName, statuses, onClose, onC
           {showFields && (
             <div className="space-y-0">
               {/* Status */}
-              <div className="flex items-center py-3 border-t border-border-subtle">
+              <div className="flex items-center py-3 border-t border-bg-base">
                 <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary">
                   <Layers size={15} />
                   <span>Status</span>
@@ -242,7 +242,7 @@ export function CreateTaskModal({ projectId, projectName, statuses, onClose, onC
                     <ChevronDown size={10} className="inline ml-1" />
                   </button>
                   {showStatusDropdown && (
-                    <div className="absolute top-full left-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-40 py-1">
+                    <div className="absolute top-full left-0 mt-1 bg-bg-card rounded-xl shadow-lg z-[60] w-40 py-1">
                       {statuses.map((s) => (
                         <button
                           key={s.slug}
@@ -269,7 +269,7 @@ export function CreateTaskModal({ projectId, projectName, statuses, onClose, onC
               </div>
 
               {/* Priority */}
-              <div className="flex items-center py-3 border-t border-border-subtle">
+              <div className="flex items-center py-3 border-t border-bg-base">
                 <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary">
                   <Flag size={15} />
                   <span>Priority</span>
@@ -284,7 +284,7 @@ export function CreateTaskModal({ projectId, projectName, statuses, onClose, onC
                     <ChevronDown size={10} className="inline ml-1" />
                   </button>
                   {showPriorityDropdown && (
-                    <div className="absolute top-full left-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-40 py-1">
+                    <div className="absolute top-full left-0 mt-1 bg-bg-card rounded-xl shadow-lg z-[60] w-40 py-1">
                       {PRIORITY_OPTIONS.map((p) => (
                         <button
                           key={p.value}
@@ -308,7 +308,7 @@ export function CreateTaskModal({ projectId, projectName, statuses, onClose, onC
               </div>
 
               {/* Assignees */}
-              <div className="flex items-start py-3 border-t border-border-subtle">
+              <div className="flex items-start py-3 border-t border-bg-base">
                 <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary pt-0.5">
                   <User size={15} />
                   <span>Assignees</span>
@@ -321,7 +321,7 @@ export function CreateTaskModal({ projectId, projectName, statuses, onClose, onC
               </div>
 
               {/* Deadline */}
-              <div className="flex items-center py-3 border-t border-border-subtle">
+              <div className="flex items-center py-3 border-t border-bg-base">
                 <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary">
                   <Calendar size={15} />
                   <span>Deadline</span>
@@ -335,7 +335,7 @@ export function CreateTaskModal({ projectId, projectName, statuses, onClose, onC
               </div>
 
               {/* Labels */}
-              <div className="flex items-start py-3 border-t border-b border-border-subtle">
+              <div className="flex items-start py-3 border-t border-b border-bg-base">
                 <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary pt-0.5">
                   <Tag size={15} />
                   <span>Labels</span>
@@ -380,14 +380,14 @@ export function CreateTaskModal({ projectId, projectName, statuses, onClose, onC
                     <Plus size={12} /> Add label
                   </button>
                   {showLabelDropdown && (
-                    <div className="absolute top-full left-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-64 max-h-72 flex flex-col">
-                      <div className="px-3 py-2 border-b border-border">
+                    <div className="absolute top-full left-0 mt-1 bg-bg-card rounded-xl shadow-lg z-[60] w-64 max-h-72 flex flex-col">
+                      <div className="px-3 py-2">
                         <input
                           type="text"
                           value={labelSearch}
                           onChange={(e) => setLabelSearch(e.target.value)}
                           placeholder="Search labels..."
-                          className="w-full text-sm bg-bg-card border border-border text-text-primary rounded px-2 py-1 outline-none focus:border-border placeholder:text-text-disabled"
+                          className="w-full text-sm bg-bg-base text-text-primary rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-brand placeholder:text-text-disabled"
                           autoFocus
                         />
                       </div>
@@ -411,7 +411,7 @@ export function CreateTaskModal({ projectId, projectName, statuses, onClose, onC
                           });
                           return Object.entries(grouped).map(([category, catLabels]) => (
                             <div key={category}>
-                              <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-text-disabled uppercase tracking-wider">
+                              <p className="px-3 pt-2 pb-1 text-xs font-semibold text-text-disabled uppercase tracking-wider">
                                 {category}
                               </p>
                               {catLabels.map((t) => (
@@ -447,11 +447,11 @@ export function CreateTaskModal({ projectId, projectName, statuses, onClose, onC
 
           {/* Separator toggle */}
           <div className="flex items-center gap-3 mt-6">
-            <div className="flex-1 h-px bg-border" />
+            <div className="flex-1 h-px bg-bg-base" />
             <button
               type="button"
               onClick={() => setShowFields((p) => !p)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-border text-xs text-text-secondary hover:bg-bg-card transition-colors whitespace-nowrap"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-bg-card text-xs text-text-secondary hover:bg-bg-base transition-colors whitespace-nowrap"
             >
               {showFields ? "Hide" : "Show"} fields
               <ChevronsUpDown size={12} />

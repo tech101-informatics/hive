@@ -77,20 +77,22 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-8">
+    <div className="space-y-6 pb-8">
+      <div className="flex items-center justify-between pt-2">
         <div>
-          <h1 className="text-3xl font-bold text-text-primary">Boards</h1>
-          <p className="text-text-secondary mt-1">
+          <h1 className="text-2xl font-semibold text-text-primary tracking-tight">
+            Boards
+          </h1>
+          <p className="text-text-secondary text-sm mt-1">
             {projects.length} board{projects.length !== 1 ? "s" : ""}
           </p>
         </div>
         {isAdmin && (
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-brand text-white px-4 py-2 text-sm rounded-lg hover:bg-brand-hover font-medium transition-colors"
+            className="flex items-center gap-2 bg-brand text-white px-3 py-2 text-sm rounded-lg hover:bg-brand-hover font-medium transition-colors"
           >
-            <Plus size={18} /> New Board
+            <Plus size={16} /> New Board
           </button>
         )}
       </div>
@@ -101,51 +103,54 @@ export default function ProjectsPage() {
         </div>
       ) : projects.length === 0 ? (
         <div className="text-center py-20">
-          <FolderKanban size={48} className="mx-auto text-text-disabled mb-4" />
+          <FolderKanban
+            size={48}
+            className="mx-auto text-text-disabled mb-4"
+          />
           <p className="text-text-secondary text-lg">No boards yet</p>
-          <p className="text-text-secondary text-sm mt-1">
+          <p className="text-text-disabled text-sm mt-1">
             Create your first board to get started
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {projects.map((project) => (
             <div key={project._id} className="relative group">
               <Link href={`/projects/${project._id}`}>
-                <div className="bg-bg-card rounded-xl p-6 hover:border-brand/30 transition-colors cursor-pointer">
+                <div className="rounded-2xl bg-bg-card p-5 hover:bg-bg-surface transition-colors cursor-pointer">
                   <div className="flex items-start gap-3 mb-3">
                     <span
-                      className="w-4 h-4 rounded-full mt-1 flex-shrink-0"
+                      className="w-3.5 h-3.5 rounded mt-1 flex-shrink-0"
                       style={{ background: project.color }}
                     />
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-text-primary text-lg truncate">
+                      <h3 className="font-medium text-text-primary text-base truncate">
                         {project.name}
                       </h3>
-                      <p className="text-text-secondary text-sm mt-0.5 line-clamp-2">
+                      <p className="text-text-disabled text-sm mt-0.5 line-clamp-2">
                         {project.description || "No description"}
                       </p>
                     </div>
                   </div>
                   {(project.taskCount ?? 0) > 0 && (
-                    <div className="mt-4">
+                    <div className="mt-3">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs text-text-secondary">
-                          {project.doneCount}/{project.taskCount} cards done
+                        <span className="text-xs text-text-disabled">
+                          {project.doneCount}/{project.taskCount} done
                         </span>
-                        <span className="text-xs font-medium text-text-secondary">
+                        <span className="text-xs font-medium text-text-secondary tabular-nums">
                           {project.progressPercent}%
                         </span>
                       </div>
-                      <div className="w-full h-1.5 bg-border-subtle rounded-full overflow-hidden">
+                      <div className="w-full h-1.5 bg-bg-base rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-300"
                           style={{
                             width: `${project.progressPercent}%`,
                             background:
                               (project.progressPercent ?? 0) === 100
-                                ? "#34d399"
-                                : "#395bea",
+                                ? "var(--hive-success)"
+                                : "var(--hive-brand)",
                           }}
                         />
                       </div>
@@ -153,11 +158,11 @@ export default function ProjectsPage() {
                   )}
                   <div className="flex items-center justify-between mt-3">
                     <span
-                      className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                         project.status === "active"
                           ? "bg-success-subtle text-success"
                           : project.status === "completed"
-                            ? "bg-border text-text-secondary"
+                            ? "bg-bg-base text-text-disabled"
                             : "bg-warning-subtle text-warning"
                       }`}
                     >
@@ -171,19 +176,27 @@ export default function ProjectsPage() {
               </Link>
 
               {isAdmin && (
-                <div className="absolute top-3 right-3" ref={menuId === project._id ? menuRef : undefined}>
+                <div
+                  className="absolute top-3 right-3"
+                  ref={menuId === project._id ? menuRef : undefined}
+                >
                   <button
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      setMenuId(menuId === project._id ? null : project._id);
+                      setMenuId(
+                        menuId === project._id ? null : project._id
+                      );
                     }}
-                    className="p-1.5 rounded-lg bg-bg-card/80 backdrop-blur-sm border border-border opacity-0 group-hover:opacity-100 hover:bg-bg-surface transition-all"
+                    className="p-1.5 rounded-lg bg-bg-card/80 backdrop-blur-sm opacity-0 group-hover:opacity-100 hover:bg-bg-surface transition-all"
                   >
-                    <MoreVertical size={14} className="text-text-secondary" />
+                    <MoreVertical
+                      size={14}
+                      className="text-text-secondary"
+                    />
                   </button>
                   {menuId === project._id && (
-                    <div className="absolute right-0 top-full mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-40 py-1">
+                    <div className="absolute right-0 top-full mt-1 bg-bg-card rounded-xl shadow-lg z-[60] w-40 py-1 overflow-hidden">
                       <button
                         onClick={(e) => {
                           e.preventDefault();
@@ -199,7 +212,7 @@ export default function ProjectsPage() {
                       >
                         <Archive size={14} /> Archive
                       </button>
-                      <div className="h-px bg-border-subtle my-0.5" />
+                      <div className="h-px bg-bg-base mx-2 my-0.5" />
                       <button
                         onClick={(e) => {
                           e.preventDefault();
@@ -237,14 +250,18 @@ export default function ProjectsPage() {
       {confirmAction && (
         <ConfirmModal
           title={
-            confirmAction.type === "delete" ? "Delete Board" : "Archive Board"
+            confirmAction.type === "delete"
+              ? "Delete Board"
+              : "Archive Board"
           }
           message={
             confirmAction.type === "delete"
               ? `"${confirmAction.projectName}" and all its cards will be permanently deleted. This cannot be undone.`
               : `"${confirmAction.projectName}" will be archived and hidden from the board list. You can restore it later.`
           }
-          confirmText={confirmAction.type === "delete" ? "Delete" : "Archive"}
+          confirmText={
+            confirmAction.type === "delete" ? "Delete" : "Archive"
+          }
           variant={confirmAction.type === "delete" ? "danger" : "warning"}
           onConfirm={() => {
             if (confirmAction.type === "delete") {

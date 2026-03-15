@@ -44,7 +44,10 @@ export default function BoardSettingsPage() {
   const [editLabel, setEditLabel] = useState("");
   const editRef = useRef<HTMLInputElement>(null);
   const [colorPickerId, setColorPickerId] = useState<string | null>(null);
-  const [pickerPos, setPickerPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [pickerPos, setPickerPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
   const colorPickerRef = useRef<HTMLDivElement>(null);
   const nativeColorRef = useRef<HTMLInputElement>(null);
 
@@ -94,7 +97,6 @@ export default function BoardSettingsPage() {
     setTimeout(() => setToast(""), 2000);
   };
 
-  // --- Rename ---
   const startRename = (col: BoardColumn) => {
     setEditingId(col._id);
     setEditLabel(col.label);
@@ -112,7 +114,6 @@ export default function BoardSettingsPage() {
     showToast("Saved");
   };
 
-  // --- Color ---
   const updateColor = async (id: string, color: string) => {
     setColumns((prev) => prev.map((c) => (c._id === id ? { ...c, color } : c)));
     await fetch(`/api/board-status/${id}`, {
@@ -123,7 +124,6 @@ export default function BoardSettingsPage() {
     showToast("Saved");
   };
 
-  // --- Set Default ---
   const setDefault = async (id: string) => {
     setColumns((prev) => prev.map((c) => ({ ...c, isDefault: c._id === id })));
     await fetch(`/api/board-status/${id}`, {
@@ -135,7 +135,6 @@ export default function BoardSettingsPage() {
     showToast("Default updated");
   };
 
-  // --- Delete ---
   const initiateDelete = async (col: BoardColumn) => {
     const res = await fetch(`/api/board-status/${col._id}`, {
       method: "DELETE",
@@ -158,13 +157,11 @@ export default function BoardSettingsPage() {
 
   const confirmDelete = async () => {
     if (!deleteTarget || !migrateToId) return;
-    // Move tasks first
     await fetch(`/api/board-status/${deleteTarget._id}/migrate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ targetStatusId: migrateToId }),
     });
-    // Then delete
     await fetch(`/api/board-status/${deleteTarget._id}`, {
       method: "DELETE",
     });
@@ -173,7 +170,6 @@ export default function BoardSettingsPage() {
     showToast("Column deleted");
   };
 
-  // --- Add ---
   const addColumn = async () => {
     if (!newLabel.trim()) return;
     await fetch("/api/board-status", {
@@ -188,7 +184,6 @@ export default function BoardSettingsPage() {
     showToast("Column added");
   };
 
-  // --- Drag Reorder ---
   const handleDragStart = (idx: number) => setDraggingIdx(idx);
 
   const handleDrop = async (targetIdx: number) => {
@@ -235,69 +230,66 @@ export default function BoardSettingsPage() {
 
   return (
     <div className="max-w-2xl">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">
+          <h1 className="text-xl font-semibold text-text-primary tracking-tight">
             Board Columns
           </h1>
           <p className="text-text-secondary text-sm mt-1">
-            Configure the columns that appear on your Kanban board.
+            Configure the columns on your Kanban board
           </p>
         </div>
         <button
           onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-hover font-medium transition-colors text-sm"
+          className="flex items-center gap-2 bg-brand text-white px-3 py-2 rounded-lg hover:bg-brand-hover font-medium transition-colors text-sm"
         >
           <Plus size={16} /> Add Column
         </button>
       </div>
 
       {/* Column list */}
-      <div className="bg-bg-card rounded-xl overflow-hidden">
-        {columns.map((col, idx) => (
-          <div
-            key={col._id}
-            draggable
-            onDragStart={() => handleDragStart(idx)}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOverIdx(idx);
-            }}
-            onDragLeave={() => setDragOverIdx(null)}
-            onDrop={() => handleDrop(idx)}
-            onDragEnd={() => {
-              setDraggingIdx(null);
-              setDragOverIdx(null);
-            }}
-            className={`flex items-center gap-3 px-4 py-3 border-b border-border last:border-b-0 transition-colors ${
-              draggingIdx === idx ? "opacity-50" : ""
-            } ${dragOverIdx === idx ? "bg-brand-subtle" : "hover:bg-bg-surface"}`}
-          >
-            {/* Drag handle */}
-            <GripVertical
-              size={16}
-              className="text-text-disabled cursor-grab active:cursor-grabbing flex-shrink-0"
-            />
-
-            {/* Color swatch */}
-            <button
-              type="button"
-              className="w-5 h-5 rounded-full border-2 border-border shadow-sm cursor-pointer flex-shrink-0"
-              style={{ backgroundColor: col.color }}
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setPickerPos({ top: rect.bottom + 8, left: rect.left });
-                setColorPickerId(colorPickerId === col._id ? null : col._id);
+      <div className="rounded-2xl bg-bg-card overflow-hidden">
+        <div className="divide-y divide-bg-base">
+          {columns.map((col, idx) => (
+            <div
+              key={col._id}
+              draggable
+              onDragStart={() => handleDragStart(idx)}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOverIdx(idx);
               }}
-            />
+              onDragLeave={() => setDragOverIdx(null)}
+              onDrop={() => handleDrop(idx)}
+              onDragEnd={() => {
+                setDraggingIdx(null);
+                setDragOverIdx(null);
+              }}
+              className={`flex items-center gap-3 px-4 py-3 transition-colors ${
+                draggingIdx === idx ? "opacity-50" : ""
+              } ${dragOverIdx === idx ? "bg-brand-subtle" : "hover:bg-bg-surface"}`}
+            >
+              <GripVertical
+                size={16}
+                className="text-text-disabled cursor-grab active:cursor-grabbing flex-shrink-0"
+              />
 
-            {/* Label */}
-            <div className="flex-1 min-w-0">
-              {editingId === col._id ? (
-                <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="w-5 h-5 rounded-full shadow-sm cursor-pointer flex-shrink-0 ring-2 ring-bg-base"
+                style={{ backgroundColor: col.color }}
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setPickerPos({ top: rect.bottom + 8, left: rect.left });
+                  setColorPickerId(colorPickerId === col._id ? null : col._id);
+                }}
+              />
+
+              <div className="flex-1 min-w-0">
+                {editingId === col._id ? (
                   <input
                     ref={editRef}
-                    className="text-sm font-medium text-text-primary bg-transparent border border-brand rounded px-2 py-0.5 outline-none focus:ring-2 focus:ring-brand"
+                    className="text-sm font-medium text-text-primary bg-transparent rounded px-2 py-0.5 outline-none ring-2 ring-brand"
                     value={editLabel}
                     onChange={(e) => setEditLabel(e.target.value)}
                     onKeyDown={(e) => {
@@ -306,64 +298,61 @@ export default function BoardSettingsPage() {
                     }}
                     onBlur={saveRename}
                   />
-                </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-text-primary">
+                      {col.label}
+                    </span>
+                    <span className="text-xs text-text-600 font-mono">
+                      {col.slug}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {col.isDefault ? (
+                <span className="flex items-center gap-1 text-xs text-warning bg-warning-subtle px-2 py-0.5 rounded-full font-medium flex-shrink-0">
+                  <Star size={10} className="fill-warning" /> Default
+                </span>
               ) : (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-text-primary">
-                    {col.label}
-                  </span>
-                  <span className="text-[10px] text-text-secondary font-mono">
-                    {col.slug}
-                  </span>
-                </div>
+                <button
+                  onClick={() => setDefault(col._id)}
+                  className="text-xs text-text-disabled hover:text-warning transition-colors flex-shrink-0"
+                  title="Set as default"
+                >
+                  Set Default
+                </button>
               )}
-            </div>
 
-            {/* Default badge or set default */}
-            {col.isDefault ? (
-              <span className="flex items-center gap-1 text-xs text-warning bg-warning-subtle px-2 py-0.5 rounded-full font-medium flex-shrink-0">
-                <Star size={10} className="fill-warning" /> Default
-              </span>
-            ) : (
               <button
-                onClick={() => setDefault(col._id)}
-                className="text-xs text-text-disabled hover:text-warning transition-colors flex-shrink-0"
-                title="Set as default"
+                onClick={() => startRename(col)}
+                className="p-1.5 text-text-disabled hover:text-brand transition-colors flex-shrink-0"
+                title="Rename"
               >
-                Set Default
+                <Pencil size={14} />
               </button>
-            )}
 
-            {/* Rename */}
-            <button
-              onClick={() => startRename(col)}
-              className="p-1.5 text-text-disabled hover:text-brand transition-colors flex-shrink-0"
-              title="Rename"
-            >
-              <Pencil size={14} />
-            </button>
-
-            {/* Delete */}
-            <button
-              onClick={() => initiateDelete(col)}
-              className="p-1.5 text-text-disabled hover:text-danger transition-colors flex-shrink-0"
-              title="Delete"
-            >
-              <Trash2 size={14} />
-            </button>
-          </div>
-        ))}
+              <button
+                onClick={() => initiateDelete(col)}
+                className="p-1.5 text-text-disabled hover:text-danger transition-colors flex-shrink-0"
+                title="Delete"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       <p className="text-xs text-text-disabled mt-3 text-center">
-        Drag rows to reorder columns. Click the color dot to change colors.
+        Drag rows to reorder · Click the color dot to change colors
       </p>
 
-      {/* Color picker — rendered fixed so it escapes overflow-hidden */}
+      {/* Color picker */}
       {colorPickerId && (
         <div
           ref={colorPickerRef}
-          className="fixed z-50 bg-bg-surface rounded-xl shadow-xl border border-border p-3"
+          className="fixed z-50 bg-bg-surface rounded-xl shadow-xl p-3"
           style={{ top: pickerPos.top, left: pickerPos.left }}
         >
           <div className="flex items-center gap-1.5 mb-2">
@@ -386,7 +375,7 @@ export default function BoardSettingsPage() {
           <div className="h-px bg-border-subtle my-2" />
           <div className="flex items-center gap-2">
             <div
-              className="w-7 h-7 rounded-full border-2 border-border flex-shrink-0"
+              className="w-7 h-7 rounded-full flex-shrink-0 ring-2 ring-bg-base"
               style={{
                 backgroundColor:
                   columns.find((col) => col._id === colorPickerId)?.color ||
@@ -395,7 +384,7 @@ export default function BoardSettingsPage() {
             />
             <input
               type="text"
-              className="flex-1 text-xs font-mono bg-bg-card border border-border text-text-primary rounded px-2 py-1 w-20 outline-none focus:ring-1 focus:ring-brand"
+              className="flex-1 text-xs font-mono bg-bg-card text-text-primary rounded px-2 py-1 w-20 outline-none focus:ring-1 focus:ring-brand"
               value={
                 columns.find((col) => col._id === colorPickerId)?.color || ""
               }
@@ -455,11 +444,11 @@ export default function BoardSettingsPage() {
 
       {/* Add column form */}
       {showAddForm && (
-        <div className="mt-4 bg-bg-card rounded-xl border border-border p-4">
+        <div className="mt-4 rounded-2xl bg-bg-card p-4">
           <div className="flex items-center gap-3">
             <input
               autoFocus
-              className="flex-1 text-sm bg-bg-surface border border-border text-text-primary placeholder:text-text-disabled rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand"
+              className="flex-1 text-sm bg-bg-base text-text-primary placeholder:text-text-disabled rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand"
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
               placeholder="Column name..."
@@ -510,10 +499,10 @@ export default function BoardSettingsPage() {
         </div>
       )}
 
-      {/* Delete confirmation dialog with migration */}
+      {/* Delete confirmation dialog */}
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-bg-surface border border-border rounded-2xl shadow-xl p-6 w-full max-w-sm">
+          <div className="bg-bg-surface rounded-2xl shadow-xl p-6 w-full max-w-sm">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-danger-subtle rounded-lg">
                 <AlertTriangle size={20} className="text-danger" />
@@ -534,7 +523,7 @@ export default function BoardSettingsPage() {
               Move existing cards to:
             </p>
             <select
-              className="w-full bg-bg-card border border-border text-text-primary rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:ring-2 focus:ring-brand"
+              className="w-full bg-bg-card text-text-primary rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:ring-2 focus:ring-brand"
               value={migrateToId}
               onChange={(e) => setMigrateToId(e.target.value)}
             >
@@ -550,7 +539,7 @@ export default function BoardSettingsPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteTarget(null)}
-                className="flex-1 px-4 py-2 border border-border rounded-lg text-text-secondary hover:bg-bg-card text-sm"
+                className="flex-1 px-4 py-2 bg-bg-card rounded-lg text-text-secondary hover:bg-bg-base text-sm"
               >
                 Cancel
               </button>
@@ -567,7 +556,7 @@ export default function BoardSettingsPage() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 right-6 bg-bg-surface text-text-primary px-4 py-2 rounded-lg shadow-lg text-sm flex items-center gap-2 animate-in z-50 border border-border">
+        <div className="fixed bottom-6 right-6 bg-bg-card text-text-primary px-4 py-2.5 rounded-xl shadow-lg text-sm flex items-center gap-2 z-50">
           <Check size={14} className="text-success" />
           {toast}
         </div>

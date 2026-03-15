@@ -181,7 +181,9 @@ export function EditTaskModal({
     }[]
   >([]);
   const [rightTab, setRightTab] = useState<"comments" | "activity">("comments");
-  const [confirmAction, setConfirmAction] = useState<"delete" | "archive" | null>(null);
+  const [confirmAction, setConfirmAction] = useState<
+    "delete" | "archive" | null
+  >(null);
   const [showCardMenu, setShowCardMenu] = useState(false);
   const cardMenuRef = useRef<HTMLDivElement>(null);
   const isAdmin = session?.user?.role === "admin";
@@ -216,11 +218,15 @@ export function EditTaskModal({
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (cardMenuRef.current && !cardMenuRef.current.contains(e.target as Node)) {
+      if (
+        cardMenuRef.current &&
+        !cardMenuRef.current.contains(e.target as Node)
+      ) {
         setShowCardMenu(false);
       }
     };
-    if (showCardMenu) document.addEventListener("mousedown", handleClickOutside);
+    if (showCardMenu)
+      document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showCardMenu]);
 
@@ -405,12 +411,14 @@ export function EditTaskModal({
 
   const getMemberAvatar = (name: string): string | undefined =>
     members.find((m) => m.name === name)?.avatar ||
-    (name === session?.user?.name ? session?.user?.image ?? undefined : undefined);
+    (name === session?.user?.name
+      ? (session?.user?.image ?? undefined)
+      : undefined);
 
   const Avatar = ({
     name,
     size = "w-5 h-5",
-    textSize = "text-[9px]",
+    textSize = "text-xs",
     bg = "bg-brand-subtle",
     color = "text-brand",
   }: {
@@ -605,7 +613,9 @@ export function EditTaskModal({
                             {parentCard.title}
                           </span>
                         ) : (
-                          <span className="text-text-disabled text-xs">None</span>
+                          <span className="text-text-disabled text-xs">
+                            None
+                          </span>
                         )}
                       </td>
                       <td className="px-4 py-1">
@@ -849,7 +859,7 @@ export function EditTaskModal({
                             return Object.entries(grouped).map(
                               ([category, catLabels]) => (
                                 <div key={category}>
-                                  <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-text-disabled uppercase tracking-wider">
+                                  <p className="px-3 pt-2 pb-1 text-xs font-semibold text-text-disabled uppercase tracking-wider">
                                     {category}
                                   </p>
                                   {catLabels.map((t) => (
@@ -1075,7 +1085,7 @@ export function EditTaskModal({
                 <div className="bg-bg-card rounded-lg p-3 mb-3 space-y-2">
                   <div className="flex gap-2">
                     <div className="flex-1">
-                      <label className="block text-[10px] uppercase tracking-wider text-text-disabled font-semibold mb-1">
+                      <label className="block text-xs uppercase tracking-wider text-text-disabled font-semibold mb-1">
                         Duration (minutes)
                       </label>
                       <input
@@ -1088,7 +1098,7 @@ export function EditTaskModal({
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] uppercase tracking-wider text-text-disabled font-semibold mb-1">
+                      <label className="block text-xs uppercase tracking-wider text-text-disabled font-semibold mb-1">
                         Date
                       </label>
                       <input
@@ -1135,7 +1145,7 @@ export function EditTaskModal({
                       <Avatar
                         name={log.user}
                         size="w-8 h-8"
-                        textSize="text-[8px]"
+                        textSize="text-xs"
                         bg="bg-bg-card"
                         color="text-text-disabled"
                       />
@@ -1168,7 +1178,9 @@ export function EditTaskModal({
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-text-disabled">No time logged yet.</p>
+                <p className="text-xs text-text-disabled">
+                  No time logged yet.
+                </p>
               )}
             </div>
           </div>
@@ -1189,7 +1201,7 @@ export function EditTaskModal({
                 <MessageSquare size={14} />
                 Comments
                 {comments.length > 0 && (
-                  <span className="text-[10px] bg-border text-text-secondary px-1.5 py-0.5 rounded-full font-medium">
+                  <span className="text-xs bg-border text-text-secondary px-1.5 py-0.5 rounded-full font-medium">
                     {comments.length}
                   </span>
                 )}
@@ -1243,7 +1255,7 @@ export function EditTaskModal({
                               )}
                             </div>
                             <div
-                              className="text-sm text-text-secondary mt-1 prose prose-sm prose-invert max-w-none break-words [&_p]:my-0.5 [&_ul]:my-0.5 [&_ol]:my-0.5"
+                              className="text-sm text-text-secondary mt-1 prose prose-sm prose-invert max-w-none break-words comments [&_p]:my-0.5 [&_ul]:my-0.5 [&_ol]:my-0.5"
                               dangerouslySetInnerHTML={{ __html: c.content }}
                             />
                           </div>
@@ -1283,7 +1295,7 @@ export function EditTaskModal({
                             <Avatar
                               name={a.user}
                               size="w-8 h-8"
-                              textSize="text-[9px]"
+                              textSize="text-xs"
                               bg="bg-bg-card"
                               color="text-text-disabled"
                             />
@@ -1295,7 +1307,7 @@ export function EditTaskModal({
                                 {a.details}
                               </span>
                             </p>
-                            <span className="text-[10px] text-text-disabled">
+                            <span className="text-xs text-text-disabled">
                               {timeAgo(a.createdAt)}
                             </span>
                           </div>
@@ -1305,7 +1317,9 @@ export function EditTaskModal({
                   </div>
                 ) : (
                   <div className="flex items-center justify-center h-full">
-                    <p className="text-sm text-text-disabled">No activity yet.</p>
+                    <p className="text-sm text-text-disabled">
+                      No activity yet.
+                    </p>
                   </div>
                 )}
               </div>
@@ -1324,7 +1338,9 @@ export function EditTaskModal({
           }
           confirmText={confirmAction === "delete" ? "Delete" : "Archive"}
           variant={confirmAction === "delete" ? "danger" : "warning"}
-          onConfirm={confirmAction === "delete" ? handleDeleteTask : handleArchiveTask}
+          onConfirm={
+            confirmAction === "delete" ? handleDeleteTask : handleArchiveTask
+          }
           onCancel={() => setConfirmAction(null)}
         />
       )}

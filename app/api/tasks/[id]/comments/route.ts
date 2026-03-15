@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { Comment } from "@/models/Comment";
 import { Task } from "@/models/Task";
-import { Project } from "@/models/Project";
-import { sendSlackNotification, buildSlackMap } from "@/lib/slack";
 import { logActivity } from "@/lib/activity";
 import { getSessionOrUnauthorized } from "@/lib/auth-helpers";
 
@@ -47,20 +45,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     content: content.trim(),
   });
 
-  // Slack notification + activity log
+  // Activity log (Slack notification for comments disabled)
   const task = await Task.findById(taskId);
   if (task) {
-    const project = await Project.findById(task.projectId);
-    const slackMap = await buildSlackMap();
-    await sendSlackNotification({
-      type: "comment_added",
-      taskTitle: task.title,
-      projectName: project?.name || "Unknown Project",
-      projectId: String(task.projectId),
-      taskId: String(taskId),
-      author: session!.user.name || "Unknown",
-      assignees: task.assignees,
-    }, slackMap, task.slackThreadTs || undefined);
     await logActivity({
       taskId: String(taskId),
       projectId: String(task.projectId),

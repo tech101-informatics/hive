@@ -9,6 +9,7 @@ import { Counter } from "@/models/Counter";
 import { sendSlackNotification, buildSlackMap } from "@/lib/slack";
 import { logActivity } from "@/lib/activity";
 import { getSessionOrUnauthorized, requireAdmin } from "@/lib/auth-helpers";
+import { trackStatusChange, trackAssigneeChange, closeAllMemberTimesForTask } from "@/lib/time-tracking";
 
 function findTask(id: string) {
   if (/^SP-\d+$/i.test(id)) {
@@ -188,6 +189,29 @@ export async function PUT(
     if (changes.length > 0) {
       const { postUpdateToThread } = await import("@/lib/slack");
       await postUpdateToThread(threadTs, task.title, projectName, userName, changes);
+    }
+  }
+
+  // Time tracking
+  if (body.status && previousStatus !== body.status) {
+    try {
+      await trackStatusChange(tid, pid, previousStatus, body.status);
+      // Close all member times when card reaches "done"
+      if (body.status === "done") {
+        await closeAllMemberTimesForTask(tid);
+      }
+    } catch (e) {
+      console.error("[TimeTracking] status tracking error:", e);
+    }
+  }
+  if (
+    body.assignees &&
+    JSON.stringify(previousAssignees) !== JSON.stringify(body.assignees)
+  ) {
+    try {
+      await trackAssigneeChange(tid, pid, previousAssignees, body.assignees);
+    } catch (e) {
+      console.error("[TimeTracking] assignee tracking error:", e);
     }
   }
 

@@ -11,6 +11,7 @@ import { BoardStatus } from "@/models/BoardStatus";
 import { sendSlackNotification, buildSlackMap } from "@/lib/slack";
 import { logActivity } from "@/lib/activity";
 import { getSessionOrUnauthorized, requireAdmin } from "@/lib/auth-helpers";
+import { trackInitialStatus, trackInitialAssignees } from "@/lib/time-tracking";
 
 async function getNextCardNumber(): Promise<number> {
   const counter = await Counter.findByIdAndUpdate(
@@ -102,6 +103,16 @@ export async function POST(req: NextRequest) {
     action: "created_task",
     details: `Created card "${task.title}"`,
   });
+
+  // Time tracking: seed initial entries
+  try {
+    await trackInitialStatus(String(task._id), String(body.projectId), task.status);
+    if (task.assignees?.length) {
+      await trackInitialAssignees(String(task._id), String(body.projectId), task.assignees);
+    }
+  } catch (e) {
+    console.error("[TimeTracking] initial tracking error:", e);
+  }
 
   return NextResponse.json(task, { status: 201 });
 }

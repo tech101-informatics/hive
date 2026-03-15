@@ -62,10 +62,10 @@ function FilterDropdown({
       <button
         type="button"
         onClick={() => setOpen((p) => !p)}
-        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg transition-colors whitespace-nowrap ${
+        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors whitespace-nowrap ${
           value
             ? "filter-btn-active"
-            : "border-border bg-bg-surface text-text-secondary hover:bg-bg-card"
+            : "bg-bg-base text-text-secondary hover:bg-bg-surface"
         }`}
       >
         {icon}
@@ -76,7 +76,7 @@ function FilterDropdown({
         />
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-fit min-w-[180px] max-h-64 overflow-y-auto py-1.5">
+        <div className="absolute top-full left-0 mt-1 bg-bg-card rounded-xl shadow-lg z-[60] w-fit min-w-[180px] max-h-64 overflow-y-auto py-1.5">
           <button
             type="button"
             onClick={() => {
@@ -91,7 +91,7 @@ function FilterDropdown({
           >
             All
           </button>
-          <div className="h-px bg-border-subtle my-0.5" />
+          <div className="h-px bg-bg-base my-0.5" />
           {children}
         </div>
       )}
@@ -135,10 +135,10 @@ function MultiFilterDropdown({
       <button
         type="button"
         onClick={() => setOpen((p) => !p)}
-        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg transition-colors whitespace-nowrap ${
+        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors whitespace-nowrap ${
           hasSelection
             ? "filter-btn-active"
-            : "border-border bg-bg-surface text-text-secondary hover:bg-bg-card"
+            : "bg-bg-base text-text-secondary hover:bg-bg-surface"
         }`}
       >
         {icon}
@@ -149,7 +149,7 @@ function MultiFilterDropdown({
         />
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-fit min-w-54 max-h-64 overflow-y-auto py-1.5">
+        <div className="absolute top-full left-0 mt-1 bg-bg-card rounded-xl shadow-lg z-[60] w-fit min-w-54 max-h-64 overflow-y-auto py-1.5">
           {hasSelection && (
             <>
               <button
@@ -159,7 +159,7 @@ function MultiFilterDropdown({
               >
                 Clear all
               </button>
-              <div className="h-px bg-border-subtle my-0.5" />
+              <div className="h-px bg-bg-base my-0.5" />
             </>
           )}
           {children}
@@ -181,7 +181,9 @@ export default function ProjectPage() {
   const [showModal, setShowModal] = useState(false);
   const [boardMenuOpen, setBoardMenuOpen] = useState(false);
   const boardMenuRef = useRef<HTMLDivElement>(null);
-  const [confirmAction, setConfirmAction] = useState<"delete" | "archive" | null>(null);
+  const [confirmAction, setConfirmAction] = useState<
+    "delete" | "archive" | null
+  >(null);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -208,11 +210,10 @@ export default function ProjectPage() {
         const lData = await lRes.json();
         setMembers(Array.isArray(mData) ? mData : []);
         setLabels(Array.isArray(lData) ? lData : []);
-      },
+      }
     );
   }, []);
 
-  // Filtered tasks
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
       if (search && !t.title.toLowerCase().includes(search.toLowerCase()))
@@ -241,7 +242,7 @@ export default function ProjectPage() {
 
   const toggleLabel = (name: string) =>
     setFilterLabels((prev) =>
-      prev.includes(name) ? prev.filter((l) => l !== name) : [...prev, name],
+      prev.includes(name) ? prev.filter((l) => l !== name) : [...prev, name]
     );
 
   const fetchData = async () => {
@@ -271,7 +272,10 @@ export default function ProjectPage() {
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (boardMenuRef.current && !boardMenuRef.current.contains(e.target as Node))
+      if (
+        boardMenuRef.current &&
+        !boardMenuRef.current.contains(e.target as Node)
+      )
         setBoardMenuOpen(false);
     };
     if (boardMenuOpen) document.addEventListener("mousedown", handleClick);
@@ -327,11 +331,11 @@ export default function ProjectPage() {
           </Link>
           <div className="flex items-center gap-3">
             <span
-              className="w-4 h-4 rounded-full"
+              className="w-3.5 h-3.5 rounded"
               style={{ background: project?.color }}
             />
             <div>
-              <h1 className="text-2xl font-bold text-text-primary">
+              <h1 className="text-xl font-semibold text-text-primary tracking-tight">
                 {project?.name}
               </h1>
               {project?.description && (
@@ -346,7 +350,7 @@ export default function ProjectPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 bg-brand text-sm text-white px-4 py-2 rounded-lg hover:bg-brand-hover font-medium transition-colors"
+              className="flex items-center gap-2 bg-brand text-sm text-white px-3 py-2 rounded-lg hover:bg-brand-hover font-medium transition-colors"
             >
               <Plus size={16} /> Add Card
             </button>
@@ -358,7 +362,7 @@ export default function ProjectPage() {
                 <MoreVertical size={18} className="text-text-secondary" />
               </button>
               {boardMenuOpen && (
-                <div className="absolute right-0 top-full mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-44 py-1">
+                <div className="absolute right-0 top-full mt-1 bg-bg-card rounded-xl shadow-lg z-[60] w-44 py-1 overflow-hidden">
                   <button
                     onClick={() => {
                       setBoardMenuOpen(false);
@@ -368,7 +372,7 @@ export default function ProjectPage() {
                   >
                     <Archive size={14} /> Archive Board
                   </button>
-                  <div className="h-px bg-border-subtle my-0.5" />
+                  <div className="h-px bg-bg-base mx-2 my-0.5" />
                   <button
                     onClick={() => {
                       setBoardMenuOpen(false);
@@ -386,9 +390,8 @@ export default function ProjectPage() {
       </div>
 
       {/* Filter bar */}
-      <div className="mb-4 bg-bg-card rounded-xl p-3">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Search */}
+      <div className="mb-4 rounded-2xl bg-bg-card p-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           <div className="relative min-w-[200px] flex-1 max-w-sm">
             <Search
               size={14}
@@ -399,11 +402,10 @@ export default function ProjectPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search cards..."
-              className="w-full pl-9 pr-3 py-1.5 text-sm border border-border rounded-lg bg-bg-surface text-text-primary placeholder:text-text-disabled focus:outline-none focus:ring-1 focus:ring-brand transition-colors"
+              className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg bg-bg-base text-text-primary placeholder:text-text-disabled focus:outline-none focus:ring-2 focus:ring-brand transition-colors"
             />
           </div>
 
-          {/* Priority dropdown */}
           <FilterDropdown
             label="Priority"
             icon={<Flag size={13} />}
@@ -420,7 +422,9 @@ export default function ProjectPage() {
                 key={p.value}
                 type="button"
                 onClick={() =>
-                  setFilterPriority(filterPriority === p.value ? "" : p.value)
+                  setFilterPriority(
+                    filterPriority === p.value ? "" : p.value
+                  )
                 }
                 className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors text-left ${
                   filterPriority === p.value
@@ -434,7 +438,6 @@ export default function ProjectPage() {
             ))}
           </FilterDropdown>
 
-          {/* Assignee dropdown (multiselect) */}
           <AssigneeDropdown
             variant="button"
             members={members}
@@ -442,7 +445,6 @@ export default function ProjectPage() {
             onChange={setFilterAssignees}
           />
 
-          {/* Label dropdown (multiselect) */}
           <MultiFilterDropdown
             label="Label"
             icon={<Tag size={13} />}
@@ -464,8 +466,8 @@ export default function ProjectPage() {
                   }`}
                 >
                   <span
-                    className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center ${
-                      selected ? "bg-brand border-brand" : "border-border"
+                    className={`w-3.5 h-3.5 rounded flex-shrink-0 flex items-center justify-center ${
+                      selected ? "bg-brand" : "bg-bg-base"
                     }`}
                   >
                     {selected && (
@@ -495,7 +497,6 @@ export default function ProjectPage() {
             })}
           </MultiFilterDropdown>
 
-          {/* Clear */}
           {activeFilterCount > 0 && (
             <button
               onClick={clearFilters}
@@ -506,9 +507,8 @@ export default function ProjectPage() {
           )}
         </div>
 
-        {/* Active filter count */}
         {activeFilterCount > 0 && (
-          <div className="mt-2 text-xs text-text-secondary">
+          <div className="mt-2 text-xs text-text-disabled">
             Showing {filteredTasks.length} of {tasks.length} cards
           </div>
         )}
@@ -541,7 +541,9 @@ export default function ProjectPage() {
 
       {confirmAction && (
         <ConfirmModal
-          title={confirmAction === "delete" ? "Delete Board" : "Archive Board"}
+          title={
+            confirmAction === "delete" ? "Delete Board" : "Archive Board"
+          }
           message={
             confirmAction === "delete"
               ? `"${project?.name}" and all its cards will be permanently deleted. This cannot be undone.`
@@ -549,7 +551,11 @@ export default function ProjectPage() {
           }
           confirmText={confirmAction === "delete" ? "Delete" : "Archive"}
           variant={confirmAction === "delete" ? "danger" : "warning"}
-          onConfirm={confirmAction === "delete" ? handleDeleteBoard : handleArchiveBoard}
+          onConfirm={
+            confirmAction === "delete"
+              ? handleDeleteBoard
+              : handleArchiveBoard
+          }
           onCancel={() => setConfirmAction(null)}
         />
       )}

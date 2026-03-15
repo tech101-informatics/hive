@@ -305,7 +305,7 @@ export function RichTextEditor({
           >
             <Code size={14} />
           </button>
-          <span className="text-[10px] text-text-disabled ml-2">@mention</span>
+          <span className="text-xs text-text-disabled ml-2">@mention</span>
         </div>
         {mode === "submit" && (
           <button

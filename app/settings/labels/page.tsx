@@ -11,9 +11,18 @@ interface Label {
 }
 
 const PRESET_COLORS = [
-  "#6366f1", "#3b82f6", "#06b6d4", "#10b981",
-  "#f59e0b", "#ef4444", "#ec4899", "#a855f7",
-  "#64748b", "#84cc16", "#f97316", "#14b8a6",
+  "#6366f1",
+  "#3b82f6",
+  "#06b6d4",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#ec4899",
+  "#a855f7",
+  "#64748b",
+  "#84cc16",
+  "#f97316",
+  "#14b8a6",
 ];
 
 export default function LabelsSettingsPage() {
@@ -53,12 +62,19 @@ export default function LabelsSettingsPage() {
   };
 
   const addLabel = async () => {
-    if (!newName.trim()) { setAddError("Name is required"); return; }
+    if (!newName.trim()) {
+      setAddError("Name is required");
+      return;
+    }
     setAddError("");
     const res = await fetch("/api/labels", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName.trim(), color: newColor, category: newCategory.trim() || undefined }),
+      body: JSON.stringify({
+        name: newName.trim(),
+        color: newColor,
+        category: newCategory.trim() || undefined,
+      }),
     });
     if (res.ok) {
       setNewName("");
@@ -117,23 +133,27 @@ export default function LabelsSettingsPage() {
   if (!isAdmin) {
     return (
       <div className="text-center py-20">
-        <p className="text-text-secondary">You don&apos;t have permission to access this page.</p>
+        <p className="text-text-secondary">
+          You don&apos;t have permission to access this page.
+        </p>
       </div>
     );
   }
 
   return (
     <div className="max-w-2xl">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-text-primary">Labels / Tags</h1>
+          <h1 className="text-xl font-semibold text-text-primary tracking-tight">
+            Labels / Tags
+          </h1>
           <p className="text-text-secondary text-sm mt-1">
-            Manage labels that can be applied to cards across all boards.
+            Manage labels applied to cards across all boards
           </p>
         </div>
         <button
           onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-hover font-medium transition-colors text-sm"
+          className="flex items-center gap-2 bg-brand text-white px-3 py-2 rounded-lg hover:bg-brand-hover font-medium transition-colors text-sm"
         >
           <Plus size={16} /> Add Label
         </button>
@@ -141,14 +161,17 @@ export default function LabelsSettingsPage() {
 
       {/* Add form */}
       {showAddForm && (
-        <div className="mb-6 bg-bg-card rounded-xl border border-border p-4">
+        <div className="mb-5 rounded-2xl bg-bg-card p-4">
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <input
                 autoFocus
-                className="flex-1 text-sm bg-bg-surface border border-border text-text-primary placeholder:text-text-disabled rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand"
+                className="flex-1 text-sm bg-bg-base text-text-primary placeholder:text-text-disabled rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand"
                 value={newName}
-                onChange={(e) => { setNewName(e.target.value); setAddError(""); }}
+                onChange={(e) => {
+                  setNewName(e.target.value);
+                  setAddError("");
+                }}
                 placeholder="Label name..."
                 onKeyDown={(e) => {
                   if (e.key === "Enter") addLabel();
@@ -156,7 +179,7 @@ export default function LabelsSettingsPage() {
                 }}
               />
               <input
-                className="w-32 text-sm bg-bg-surface border border-border text-text-primary placeholder:text-text-disabled rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand"
+                className="w-36 text-sm bg-bg-base text-text-primary placeholder:text-text-disabled rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand"
                 value={newCategory}
                 onChange={(e) => setNewCategory(e.target.value)}
                 placeholder="Category (optional)"
@@ -167,8 +190,10 @@ export default function LabelsSettingsPage() {
                 {PRESET_COLORS.map((c) => (
                   <button
                     key={c}
-                    className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${
-                      newColor === c ? "border-text-primary scale-110 ring-2 ring-text-primary/30" : "border-border"
+                    className={`w-5 h-5 rounded-full border-2 transition-transform hover:scale-110 ${
+                      newColor === c
+                        ? "border-text-primary scale-110"
+                        : "border-transparent"
                     }`}
                     style={{ backgroundColor: c }}
                     onClick={() => setNewColor(c)}
@@ -197,34 +222,38 @@ export default function LabelsSettingsPage() {
 
       {/* Labels list */}
       {labels.length === 0 ? (
-        <div className="text-center py-12 bg-bg-card rounded-xl border border-border">
-          <p className="text-text-disabled">No labels yet. Create one to get started.</p>
+        <div className="text-center py-12 rounded-2xl bg-bg-card">
+          <p className="text-text-disabled">
+            No labels yet. Create one to get started.
+          </p>
         </div>
       ) : (
         Object.entries(grouped).map(([category, catLabels]) => (
-          <div key={category} className="mb-6">
-            <h3 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2 px-1">
+          <div key={category} className="mb-5">
+            <h3 className="text-xs font-medium text-text-gray-700 uppercase tracking-wider mb-2 px-1">
               {category}
             </h3>
-            <div className="bg-bg-card rounded-xl border border-border overflow-hidden">
+            <div className="rounded-2xl bg-bg-card overflow-hidden divide-y divide-bg-base">
               {catLabels.map((label) => (
                 <div
                   key={label._id}
-                  className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-b-0 hover:bg-bg-surface transition-colors"
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-bg-surface transition-colors group"
                 >
                   {editingId === label._id ? (
                     <>
-                      <div className="relative group flex-shrink-0">
+                      <div className="relative group/color flex-shrink-0">
                         <div
-                          className="w-5 h-5 rounded-full border-2 border-border shadow-sm cursor-pointer"
+                          className="w-5 h-5 rounded-full shadow-sm cursor-pointer ring-2 ring-bg-base"
                           style={{ backgroundColor: editColor }}
                         />
-                        <div className="absolute top-full left-0 mt-2 bg-bg-surface rounded-lg shadow-lg border border-border p-2 hidden group-hover:flex gap-1 z-10">
+                        <div className="absolute top-full left-0 mt-2 bg-bg-surface rounded-xl shadow-lg p-2 hidden group-hover/color:flex gap-1 z-10">
                           {PRESET_COLORS.map((c) => (
                             <button
                               key={c}
                               className={`w-5 h-5 rounded-full border-2 transition-transform hover:scale-110 ${
-                                editColor === c ? "border-text-primary scale-110 ring-2 ring-text-primary/30" : "border-transparent"
+                                editColor === c
+                                  ? "border-text-primary scale-110"
+                                  : "border-transparent"
                               }`}
                               style={{ backgroundColor: c }}
                               onClick={() => setEditColor(c)}
@@ -234,7 +263,7 @@ export default function LabelsSettingsPage() {
                       </div>
                       <input
                         autoFocus
-                        className="flex-1 text-sm font-medium text-text-primary bg-transparent border border-brand rounded px-2 py-0.5 outline-none focus:ring-2 focus:ring-brand"
+                        className="flex-1 text-sm font-medium text-text-primary bg-transparent rounded px-2 py-0.5 outline-none ring-2 ring-brand"
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
                         onKeyDown={(e) => {
@@ -247,7 +276,7 @@ export default function LabelsSettingsPage() {
                   ) : (
                     <>
                       <span
-                        className="w-5 h-5 rounded-full flex-shrink-0 border-2 border-border shadow-sm"
+                        className="w-4 h-4 rounded-full flex-shrink-0 ring-2 ring-bg-base"
                         style={{ backgroundColor: label.color }}
                       />
                       <span className="flex-1 text-sm font-medium text-text-primary">
@@ -258,14 +287,14 @@ export default function LabelsSettingsPage() {
 
                   <button
                     onClick={() => startEdit(label)}
-                    className="p-1.5 text-text-disabled hover:text-brand transition-colors flex-shrink-0"
+                    className="p-1.5 text-text-disabled hover:text-brand transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
                     title="Edit"
                   >
                     <Pencil size={14} />
                   </button>
                   <button
                     onClick={() => deleteLabel(label._id)}
-                    className="p-1.5 text-text-disabled hover:text-danger transition-colors flex-shrink-0"
+                    className="p-1.5 text-text-disabled hover:text-danger transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
                     title="Delete"
                   >
                     <Trash2 size={14} />
@@ -279,7 +308,7 @@ export default function LabelsSettingsPage() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 right-6 bg-bg-surface text-text-primary px-4 py-2 rounded-lg shadow-lg text-sm flex items-center gap-2 z-50 border border-border">
+        <div className="fixed bottom-6 right-6 bg-bg-card text-text-primary px-4 py-2.5 rounded-xl shadow-lg text-sm flex items-center gap-2 z-50">
           <Check size={14} className="text-success" />
           {toast}
         </div>

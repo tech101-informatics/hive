@@ -20,8 +20,8 @@ function initials(name: string) {
 export function MemberAvatar({
   name,
   avatar,
-  size = "w-5 h-5",
-  textSize = "text-[9px]",
+  size = "w-6 h-6",
+  textSize = "text-xs",
   bg = "bg-brand-subtle",
   color = "text-brand",
 }: {
@@ -100,10 +100,10 @@ export function AssigneeDropdown({
         <button
           type="button"
           onClick={() => setOpen((p) => !p)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg transition-colors whitespace-nowrap ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors whitespace-nowrap ${
             selected.length > 0
               ? "filter-btn-active"
-              : "border-border bg-bg-surface text-text-secondary hover:bg-bg-card"
+              : "bg-bg-base text-text-secondary hover:bg-bg-surface"
           }`}
         >
           <User size={13} />
@@ -114,7 +114,7 @@ export function AssigneeDropdown({
           />
         </button>
         {open && (
-          <div className="absolute top-full left-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-fit min-w-54 max-h-64 overflow-y-auto py-1.5">
+          <div className="absolute top-full left-0 mt-1 bg-bg-card rounded-xl shadow-lg z-[60] w-fit min-w-54 max-h-64 overflow-y-auto py-1.5">
             {selected.length > 0 && (
               <>
                 <button
@@ -124,7 +124,7 @@ export function AssigneeDropdown({
                 >
                   Clear all
                 </button>
-                <div className="h-px bg-border-subtle my-0.5" />
+                <div className="h-px bg-bg-base my-0.5" />
               </>
             )}
             {members.map((m) => {
@@ -141,12 +141,17 @@ export function AssigneeDropdown({
                   }`}
                 >
                   <span
-                    className={`w-3.5 h-3.5 rounded border flex-shrink-0 flex items-center justify-center ${
-                      isSelected ? "bg-brand border-brand" : "border-border"
+                    className={`w-3.5 h-3.5 rounded flex-shrink-0 flex items-center justify-center ${
+                      isSelected ? "bg-brand" : "bg-bg-base"
                     }`}
                   >
                     {isSelected && (
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 10 10"
+                        fill="none"
+                      >
                         <path
                           d="M2 5L4 7L8 3"
                           stroke="white"
@@ -157,7 +162,11 @@ export function AssigneeDropdown({
                       </svg>
                     )}
                   </span>
-                  <MemberAvatar name={m.name} avatar={m.avatar} size="w-6 h-6" />
+                  <MemberAvatar
+                    name={m.name}
+                    avatar={m.avatar}
+                    size="w-6 h-6"
+                  />
                   {m.name}
                 </button>
               );
@@ -203,7 +212,7 @@ export function AssigneeDropdown({
         <Plus size={12} /> Add assignee
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-56 max-h-48 overflow-y-auto py-1">
+        <div className="absolute top-full left-0 mt-1 bg-bg-card rounded-xl shadow-lg z-[60] w-56 max-h-48 overflow-y-auto py-1">
           {members.map((m) => (
             <button
               key={m._id}
@@ -212,10 +221,10 @@ export function AssigneeDropdown({
               className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-surface transition-colors text-left"
             >
               <span
-                className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${
+                className={`w-4 h-4 rounded flex items-center justify-center text-xs ${
                   selected.includes(m.name)
-                    ? "bg-brand border-brand text-white"
-                    : "border-border"
+                    ? "bg-brand text-white"
+                    : "bg-bg-base"
                 }`}
               >
                 {selected.includes(m.name) && "✓"}
@@ -225,7 +234,9 @@ export function AssigneeDropdown({
             </button>
           ))}
           {members.length === 0 && (
-            <p className="px-3 py-2 text-xs text-text-disabled">No members found</p>
+            <p className="px-3 py-2 text-xs text-text-disabled">
+              No members found
+            </p>
           )}
         </div>
       )}

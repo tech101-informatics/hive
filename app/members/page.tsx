@@ -11,7 +11,6 @@ import {
   X,
   Link2,
   RefreshCw,
-  Send,
 } from "lucide-react";
 
 interface Member {
@@ -85,14 +84,14 @@ export default function MembersPage() {
         slackUserId: user.id,
       }),
     });
-    console.log("Add member response:", res);
     if (res.ok) {
       setSlackUsers((prev) =>
-        prev.map((u) => (u.id === user.id ? { ...u, alreadyAdded: true } : u)),
+        prev.map((u) =>
+          u.id === user.id ? { ...u, alreadyAdded: true } : u
+        )
       );
       fetchMembers();
     }
-
     setAdding(null);
   };
 
@@ -119,7 +118,6 @@ export default function MembersPage() {
 
   const syncAllSlack = async () => {
     setSyncing(true);
-    // Sync Slack IDs and roles in parallel
     const [slackRes, rolesRes] = await Promise.all([
       fetch("/api/members/sync-slack", { method: "POST" }),
       fetch("/api/members/sync-roles", { method: "POST" }),
@@ -134,7 +132,10 @@ export default function MembersPage() {
     if (messages.length) {
       setLinkResult({ ok: true, message: messages.join(" · ") });
     } else if (!slackRes.ok) {
-      setLinkResult({ ok: false, message: slackData.error || "Sync failed" });
+      setLinkResult({
+        ok: false,
+        message: slackData.error || "Sync failed",
+      });
     } else {
       setLinkResult({ ok: true, message: "Everything is up to date" });
     }
@@ -180,7 +181,10 @@ export default function MembersPage() {
     });
     const data = await res.json();
     if (res.ok) {
-      setLinkResult({ ok: true, message: `Test DM sent to ${member.name}` });
+      setLinkResult({
+        ok: true,
+        message: `Test DM sent to ${member.name}`,
+      });
     } else {
       setLinkResult({
         ok: false,
@@ -192,7 +196,7 @@ export default function MembersPage() {
   };
 
   const myMember = members.find(
-    (m) => m.email.toLowerCase() === session?.user?.email?.toLowerCase(),
+    (m) => m.email.toLowerCase() === session?.user?.email?.toLowerCase()
   );
 
   const initials = (name: string) =>
@@ -202,6 +206,7 @@ export default function MembersPage() {
       .join("")
       .toUpperCase()
       .slice(0, 2);
+
   const colors = [
     "bg-brand",
     "bg-emerald-500",
@@ -214,49 +219,62 @@ export default function MembersPage() {
   const filteredSlackUsers = slackUsers.filter(
     (u) =>
       u.name.toLowerCase().includes(slackSearch.toLowerCase()) ||
-      u.email.toLowerCase().includes(slackSearch.toLowerCase()),
+      u.email.toLowerCase().includes(slackSearch.toLowerCase())
   );
 
+  const linkedCount = members.filter((m) => m.slackUserId).length;
+  const adminCount = members.filter(
+    (m) => m.role.toLowerCase() === "admin"
+  ).length;
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-8">
+    <div className="space-y-6 pb-8">
+      {/* Header */}
+      <div className="flex items-center justify-between pt-2">
         <div>
-          <h1 className="text-3xl font-bold text-text-primary">
-            Team Members
+          <h1 className="text-2xl font-semibold text-text-primary tracking-tight">
+            Team
           </h1>
-          <p className="text-text-secondary mt-1">
+          <p className="text-text-secondary text-sm mt-1">
             {members.length} member{members.length !== 1 ? "s" : ""}
+            {linkedCount > 0 && (
+              <span className="text-text-disabled">
+                {" "}
+                · {linkedCount} on Slack
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Link my Slack — shown if current user has no slackUserId */}
           {myMember && !myMember.slackUserId && (
             <button
               onClick={linkMySlack}
               disabled={linking}
-              className="flex items-center gap-2 border border-border text-text-secondary px-4 py-2.5 rounded-lg hover:bg-bg-card font-medium transition-colors disabled:opacity-50 text-sm"
+              className="flex items-center gap-2 text-text-secondary bg-bg-card px-3 py-2 rounded-lg hover:bg-bg-surface font-medium transition-colors disabled:opacity-50 text-sm"
             >
-              <Link2 size={16} />
+              <Link2 size={15} />
               {linking ? "Linking..." : "Link my Slack"}
             </button>
           )}
-          {/* Sync all — admin only */}
           {isAdmin && (
             <button
               onClick={syncAllSlack}
               disabled={syncing}
-              className="flex items-center gap-2 border border-border text-text-secondary px-4 py-2.5 rounded-lg hover:bg-bg-card font-medium transition-colors disabled:opacity-50 text-sm"
+              className="flex items-center gap-2 text-text-secondary bg-bg-card px-3 py-2 rounded-lg hover:bg-bg-surface font-medium transition-colors disabled:opacity-50 text-sm"
             >
-              <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
-              {syncing ? "Syncing..." : "Sync Slack"}
+              <RefreshCw
+                size={15}
+                className={syncing ? "animate-spin" : ""}
+              />
+              {syncing ? "Syncing..." : "Sync"}
             </button>
           )}
           {isAdmin && (
             <button
               onClick={openSlackPicker}
-              className="flex items-center gap-2 bg-brand text-white px-4 py-2.5 rounded-lg hover:bg-brand-hover font-medium transition-colors text-sm"
+              className="flex items-center gap-2 bg-brand text-white px-3 py-2 rounded-lg hover:bg-brand-hover font-medium transition-colors text-sm"
             >
-              <Plus size={18} /> Add from Slack
+              <Plus size={16} /> Add from Slack
             </button>
           )}
         </div>
@@ -265,10 +283,10 @@ export default function MembersPage() {
       {/* Status toast */}
       {linkResult && (
         <div
-          className={`mb-4 px-4 py-3 rounded-lg text-sm font-medium ${
+          className={`px-4 py-3 rounded-xl text-sm font-medium ${
             linkResult.ok
-              ? "bg-success-subtle text-success border border-emerald-700/30"
-              : "bg-danger-subtle text-danger border border-red-700/30"
+              ? "bg-success-subtle text-success"
+              : "bg-danger-subtle text-danger"
           }`}
         >
           {linkResult.message}
@@ -278,14 +296,14 @@ export default function MembersPage() {
       {/* Slack User Picker Modal */}
       {showSlackPicker && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-bg-surface border border-border rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <div className="bg-bg-surface rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4">
               <div>
-                <h2 className="text-lg font-bold text-text-primary">
+                <h2 className="text-lg font-semibold text-text-primary">
                   Add from Slack
                 </h2>
                 <p className="text-sm text-text-secondary mt-0.5">
-                  Select workspace members to add to your team
+                  Select workspace members to add
                 </p>
               </div>
               <button
@@ -296,7 +314,7 @@ export default function MembersPage() {
               </button>
             </div>
 
-            <div className="px-6 py-3 border-b border-border">
+            <div className="px-6 pb-3">
               <div className="relative">
                 <Search
                   size={16}
@@ -307,7 +325,7 @@ export default function MembersPage() {
                   value={slackSearch}
                   onChange={(e) => setSlackSearch(e.target.value)}
                   placeholder="Search by name or email..."
-                  className="w-full pl-9 pr-3 py-2 bg-bg-card border border-border text-text-primary placeholder:text-text-disabled rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
+                  className="w-full pl-9 pr-3 py-2 bg-bg-card text-text-primary placeholder:text-text-disabled rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                   autoFocus
                 />
               </div>
@@ -320,7 +338,10 @@ export default function MembersPage() {
                 </div>
               ) : filteredSlackUsers.length === 0 ? (
                 <div className="text-center py-12">
-                  <Users size={36} className="mx-auto text-text-disabled mb-3" />
+                  <Users
+                    size={36}
+                    className="mx-auto text-text-disabled mb-3"
+                  />
                   <p className="text-text-secondary text-sm">
                     {slackUsers.length === 0
                       ? "No Slack users found. Check your SLACK_BOT_TOKEN."
@@ -390,34 +411,34 @@ export default function MembersPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {members.map((m, i) => (
             <div
               key={m._id}
-              className="bg-bg-card border border-border rounded-xl p-6 flex items-center gap-4"
+              className="rounded-2xl bg-bg-card p-5 flex items-center gap-4 group"
             >
               {m.avatar ? (
                 <img
                   src={m.avatar}
                   alt={m.name}
-                  className="w-12 h-12 rounded-full flex-shrink-0"
+                  className="w-11 h-11 rounded-full flex-shrink-0"
                 />
               ) : (
                 <div
-                  className={`${colors[i % colors.length]} w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0`}
+                  className={`${colors[i % colors.length]} w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}
                 >
                   {initials(m.name)}
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-text-primary truncate">
+                <p className="font-medium text-text-primary text-sm truncate">
                   {m.name}
                 </p>
-                <p className="text-text-secondary text-sm truncate">
+                <p className="text-text-disabled text-xs truncate">
                   {m.email}
                 </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs bg-brand-subtle text-brand px-2 py-0.5 rounded-full">
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <span className="text-xs bg-brand-subtle text-brand px-2 py-0.5 rounded-full font-medium">
                     {m.role}
                   </span>
                   {m.slackUserId ? (
@@ -429,7 +450,7 @@ export default function MembersPage() {
                           setEditSlackId(m.slackUserId);
                         }
                       }}
-                      className={`text-xs bg-success-subtle text-success px-2 py-0.5 rounded-full ${isAdmin ? "cursor-pointer hover:brightness-125" : ""}`}
+                      className={`text-xs bg-success-subtle text-success px-2 py-0.5 rounded-full font-medium ${isAdmin ? "cursor-pointer hover:brightness-125" : ""}`}
                       title={
                         isAdmin
                           ? `Slack ID: ${m.slackUserId} — click to edit`
@@ -445,32 +466,20 @@ export default function MembersPage() {
                         setEditSlackMember(m);
                         setEditSlackId("");
                       }}
-                      className="text-xs bg-bg-surface text-text-disabled px-2 py-0.5 rounded-full hover:bg-bg-card cursor-pointer"
+                      className="text-xs bg-bg-base text-text-disabled px-2 py-0.5 rounded-full hover:text-text-secondary cursor-pointer"
                     >
-                      + Link Slack
+                      + Slack
                     </button>
                   ) : null}
                 </div>
               </div>
               {isAdmin && (
-                <div className="flex flex-col gap-1">
-                  {/* {m.slackUserId && (
-                    <button
-                      onClick={() => testDM(m)}
-                      disabled={testingDM === m._id}
-                      className="p-2 text-text-disabled hover:text-brand hover:bg-brand-subtle rounded-lg transition-colors disabled:opacity-50"
-                      title="Send test DM"
-                    >
-                      <Send size={14} className={testingDM === m._id ? "animate-pulse" : ""} />
-                    </button>
-                  )} */}
-                  <button
-                    onClick={() => deleteMember(m._id)}
-                    className="p-2 text-text-disabled hover:text-danger hover:bg-danger-subtle rounded-lg transition-colors"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+                <button
+                  onClick={() => deleteMember(m._id)}
+                  className="p-2 text-text-disabled hover:text-danger hover:bg-danger-subtle rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                >
+                  <Trash2 size={15} />
+                </button>
               )}
             </div>
           ))}
@@ -480,8 +489,8 @@ export default function MembersPage() {
       {/* Edit Slack ID Modal */}
       {editSlackMember && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-bg-surface border border-border rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <h2 className="text-lg font-bold text-text-primary mb-1">
+          <div className="bg-bg-surface rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <h2 className="text-lg font-semibold text-text-primary mb-1">
               Link Slack Account
             </h2>
             <p className="text-sm text-text-secondary mb-4">
@@ -492,7 +501,7 @@ export default function MembersPage() {
                 Slack User ID
               </label>
               <input
-                className="w-full bg-bg-card border border-border text-text-primary placeholder:text-text-disabled rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand font-mono text-sm"
+                className="w-full bg-bg-card text-text-primary placeholder:text-text-disabled rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand font-mono text-sm"
                 value={editSlackId}
                 onChange={(e) => setEditSlackId(e.target.value)}
                 placeholder="e.g. U0A41A52L13"
@@ -508,7 +517,7 @@ export default function MembersPage() {
                   setEditSlackMember(null);
                   setEditSlackId("");
                 }}
-                className="flex-1 px-4 py-2 border border-border rounded-lg text-text-secondary hover:bg-bg-card text-sm"
+                className="flex-1 px-4 py-2 bg-bg-card rounded-lg text-text-secondary hover:bg-bg-base text-sm"
               >
                 Cancel
               </button>

@@ -77,15 +77,18 @@ export default function CalendarPage() {
     });
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const projectMap = useMemo(() => {
     const map: Record<string, Project> = {};
-    projects.forEach((p) => { map[p._id] = p; });
+    projects.forEach((p) => {
+      map[p._id] = p;
+    });
     return map;
   }, [projects]);
 
-  // Group tasks by deadline date string (YYYY-MM-DD)
   const tasksByDate = useMemo(() => {
     const map: Record<string, Task[]> = {};
     tasks.forEach((t) => {
@@ -102,13 +105,17 @@ export default function CalendarPage() {
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
   const prevMonth = () => {
-    if (month === 0) { setMonth(11); setYear(year - 1); }
-    else setMonth(month - 1);
+    if (month === 0) {
+      setMonth(11);
+      setYear(year - 1);
+    } else setMonth(month - 1);
   };
 
   const nextMonth = () => {
-    if (month === 11) { setMonth(0); setYear(year + 1); }
-    else setMonth(month + 1);
+    if (month === 11) {
+      setMonth(0);
+      setYear(year + 1);
+    } else setMonth(month + 1);
   };
 
   const goToToday = () => {
@@ -116,9 +123,11 @@ export default function CalendarPage() {
     setMonth(today.getMonth());
   };
 
-  const monthLabel = new Date(year, month).toLocaleString("default", { month: "long", year: "numeric" });
+  const monthLabel = new Date(year, month).toLocaleString("default", {
+    month: "long",
+    year: "numeric",
+  });
 
-  // Build calendar grid cells
   const cells: { day: number | null; dateStr: string }[] = [];
   for (let i = 0; i < firstDay; i++) cells.push({ day: null, dateStr: "" });
   for (let d = 1; d <= daysInMonth; d++) {
@@ -127,7 +136,8 @@ export default function CalendarPage() {
   }
   const remainder = cells.length % 7;
   if (remainder > 0) {
-    for (let i = 0; i < 7 - remainder; i++) cells.push({ day: null, dateStr: "" });
+    for (let i = 0; i < 7 - remainder; i++)
+      cells.push({ day: null, dateStr: "" });
   }
 
   const openTask = (task: Task) => {
@@ -136,7 +146,6 @@ export default function CalendarPage() {
 
   const handleTaskUpdated = () => {
     fetchData();
-    // Refresh the selected task if still open
     if (selectedTask) {
       fetch(`/api/tasks/${selectedTask._id}`)
         .then((r) => r.json())
@@ -146,39 +155,68 @@ export default function CalendarPage() {
     }
   };
 
-  if (loading) return (
-    <div className="flex justify-center py-20"><Loader2 className="animate-spin text-brand" size={32} /></div>
-  );
+  if (loading)
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="animate-spin text-brand" size={32} />
+      </div>
+    );
 
   const tasksWithDeadlines = tasks.filter((t) => t.deadline).length;
-  const selectedProject = selectedTask ? projectMap[selectedTask.projectId] : null;
+  const selectedProject = selectedTask
+    ? projectMap[selectedTask.projectId]
+    : null;
   const projectTasks = selectedTask
     ? tasks.filter((t) => t.projectId === selectedTask.projectId)
     : [];
 
+  // Count overdue
+  const overdueCount = tasks.filter((t) => {
+    if (!t.deadline) return false;
+    const doneStatuses = columns.filter(
+      (c) => c.order === Math.max(...columns.map((x) => x.order)),
+    );
+    const doneSlugs = doneStatuses.map((d) => d.slug);
+    return new Date(t.deadline) < today && !doneSlugs.includes(t.status);
+  }).length;
+
   return (
-    <div>
+    <div className="space-y-6 pb-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between pt-2">
         <div>
-          <h1 className="text-3xl font-bold text-text-primary">Calendar</h1>
-          <p className="text-text-secondary mt-1">{tasksWithDeadlines} card{tasksWithDeadlines !== 1 ? "s" : ""} with deadlines</p>
+          <h1 className="text-2xl font-semibold text-text-primary tracking-tight">
+            Calendar
+          </h1>
+          <p className="text-text-secondary text-sm mt-1">
+            {tasksWithDeadlines} card{tasksWithDeadlines !== 1 ? "s" : ""} with
+            deadlines
+            {overdueCount > 0 && (
+              <span className="text-danger ml-2">· {overdueCount} overdue</span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={goToToday}
-            className="px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-card border border-border rounded-lg hover:bg-bg-surface transition-colors"
+            className="px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-card rounded-lg hover:bg-bg-surface transition-colors"
           >
             Today
           </button>
-          <div className="flex items-center bg-bg-card border border-border rounded-lg">
-            <button onClick={prevMonth} className="p-1.5 hover:bg-bg-surface rounded-l-lg transition-colors">
+          <div className="flex items-center bg-bg-card rounded-lg">
+            <button
+              onClick={prevMonth}
+              className="p-1.5 hover:bg-bg-surface rounded-l-lg transition-colors"
+            >
               <ChevronLeft size={18} className="text-text-secondary" />
             </button>
             <span className="px-4 py-1.5 text-sm font-semibold text-text-primary min-w-[160px] text-center">
               {monthLabel}
             </span>
-            <button onClick={nextMonth} className="p-1.5 hover:bg-bg-surface rounded-r-lg transition-colors">
+            <button
+              onClick={nextMonth}
+              className="p-1.5 hover:bg-bg-surface rounded-r-lg transition-colors"
+            >
               <ChevronRight size={18} className="text-text-secondary" />
             </button>
           </div>
@@ -186,29 +224,33 @@ export default function CalendarPage() {
       </div>
 
       {/* Calendar grid */}
-      <div className="bg-bg-card rounded-xl border border-border overflow-hidden">
+      <div className="rounded-2xl bg-bg-card overflow-hidden">
         {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-border bg-bg-surface">
+        <div className="grid grid-cols-7">
           {DAYS.map((d) => (
-            <div key={d} className="px-2 py-2 text-xs font-semibold text-text-secondary text-center uppercase tracking-wider">
+            <div
+              key={d}
+              className="px-2 py-3 text-xs font-medium text-text-disabled text-center uppercase tracking-wider"
+            >
               {d}
             </div>
           ))}
         </div>
 
         {/* Calendar cells */}
-        <div className="grid grid-cols-7">
+        <div className="grid grid-cols-7 gap-px bg-bg-base">
           {cells.map((cell, idx) => {
             const isToday = cell.dateStr === todayStr;
-            const dayTasks = cell.dateStr ? tasksByDate[cell.dateStr] || [] : [];
-            const isWeekend = idx % 7 === 0 || idx % 7 === 6;
+            const dayTasks = cell.dateStr
+              ? tasksByDate[cell.dateStr] || []
+              : [];
 
             return (
               <div
                 key={idx}
-                className={`min-h-[100px] border-b border-r border-border-subtle p-1.5 relative ${
-                  !cell.day ? "bg-bg-base" : isWeekend ? "bg-bg-card" : "bg-bg-card"
-                } ${isToday ? "ring-2 ring-brand ring-inset" : ""}`}
+                className={`min-h-[104px] p-1.5 relative ${
+                  !cell.day ? "bg-bg-base" : "bg-bg-card"
+                }`}
               >
                 {cell.day && (
                   <>
@@ -223,7 +265,9 @@ export default function CalendarPage() {
                         {cell.day}
                       </span>
                       {dayTasks.length > 0 && (
-                        <span className="text-[10px] text-text-disabled">{dayTasks.length}</span>
+                        <span className="text-xs text-text-disabled tabular-nums">
+                          {dayTasks.length}
+                        </span>
                       )}
                     </div>
                     <div className="space-y-0.5">
@@ -234,20 +278,22 @@ export default function CalendarPage() {
                           <button
                             key={task._id}
                             onClick={() => openTask(task)}
-                            className="w-full text-left px-1.5 py-0.5 rounded text-[11px] font-medium truncate block hover:opacity-80 transition-opacity"
+                            className="w-full text-left px-1.5 py-0.5 rounded text-xs cursor-pointer font-medium truncate block hover:opacity-80 transition-opacity"
                             style={{
                               backgroundColor: projectColor + "18",
                               color: projectColor,
                             }}
                             title={`${task.title} (${project?.name || ""})`}
                           >
-                            <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${PRIORITY_DOT[task.priority]}`} />
+                            <span
+                              className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${PRIORITY_DOT[task.priority]}`}
+                            />
                             {task.title}
                           </button>
                         );
                       })}
                       {dayTasks.length > 3 && (
-                        <span className="text-[10px] text-text-disabled pl-1.5">
+                        <span className="text-xs text-text-disabled pl-1.5">
                           +{dayTasks.length - 3} more
                         </span>
                       )}

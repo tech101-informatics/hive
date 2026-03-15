@@ -49,7 +49,7 @@ export function ConfirmModal({
         onClick={close}
       />
       <div
-        className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] w-full max-w-sm bg-bg-card rounded-2xl shadow-2xl border border-border p-6 transition-all duration-150 ${
+        className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[101] w-full max-w-sm bg-bg-card rounded-2xl shadow-2xl p-6 transition-all duration-150 ${
           open ? "opacity-100 scale-100" : "opacity-0 scale-95"
         }`}
       >
@@ -71,7 +71,7 @@ export function ConfirmModal({
         <div className="flex items-center gap-3">
           <button
             onClick={close}
-            className="flex-1 px-4 py-2.5 text-sm font-medium rounded-lg border border-border bg-bg-surface text-text-primary hover:bg-bg-card transition-colors"
+            className="flex-1 px-4 py-2.5 text-sm font-medium rounded-lg bg-bg-base text-text-primary hover:bg-bg-surface transition-colors"
           >
             {cancelText}
           </button>

@@ -94,7 +94,6 @@ export function KanbanBoard({
   } | null>(null);
   const [cardMenuId, setCardMenuId] = useState<string | null>(null);
 
-  // Close card menu on outside click
   useEffect(() => {
     if (!cardMenuId) return;
     const handleClick = () => setCardMenuId(null);
@@ -102,7 +101,6 @@ export function KanbanBoard({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [cardMenuId]);
 
-  // Clear optimistic overrides once parent tasks have caught up
   useEffect(() => {
     setOptimisticStatuses((prev) => {
       const next = { ...prev };
@@ -118,9 +116,10 @@ export function KanbanBoard({
     });
   }, [tasks]);
 
-  // Merge parent tasks with optimistic overrides
   const displayedTasks = tasks.map((t) =>
-    optimisticStatuses[t._id] ? { ...t, status: optimisticStatuses[t._id] } : t,
+    optimisticStatuses[t._id]
+      ? { ...t, status: optimisticStatuses[t._id] }
+      : t
   );
 
   const tasksByStatus = (status: string) =>
@@ -139,18 +138,15 @@ export function KanbanBoard({
     if (!task || task.status === newStatus) return;
     const taskId = draggingId;
 
-    // Optimistic — card moves instantly
     setOptimisticStatuses((prev) => ({ ...prev, [taskId]: newStatus }));
     setDraggingId(null);
 
-    // API call in background — don't await, let parent re-fetch
     fetch(`/api/tasks/${taskId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
     }).then((res) => {
       if (!res.ok) {
-        // Revert on failure
         setOptimisticStatuses((prev) => {
           const next = { ...prev };
           delete next[taskId];
@@ -159,7 +155,6 @@ export function KanbanBoard({
       }
     });
 
-    // Tell parent to re-fetch — override stays until parent catches up
     onTaskUpdated();
   };
 
@@ -219,7 +214,10 @@ export function KanbanBoard({
               </span>
               <span
                 className="text-xs font-bold px-1.5 py-0.5 rounded"
-                style={{ backgroundColor: col.color + "35", color: col.color }}
+                style={{
+                  backgroundColor: col.color + "35",
+                  color: col.color,
+                }}
               >
                 {tasksByStatus(col.slug).length}
               </span>
@@ -232,10 +230,10 @@ export function KanbanBoard({
                   draggable
                   onDragStart={(e) => handleDragStart(e, task._id)}
                   onDragEnd={() => setDraggingId(null)}
-                  className={`task-card bg-bg-card rounded-lg p-3 border border-border hover:border-brand/50 hover:shadow-lg hover:shadow-brand/10 transition-all ${draggingId === task._id ? "opacity-40" : ""}`}
+                  className={`task-card bg-bg-card rounded-lg p-3 transition-all ${draggingId === task._id ? "opacity-40" : ""}`}
                 >
                   {task.cardNumber && (
-                    <span className="text-[10px] text-text-disabled font-mono mb-1 block">
+                    <span className="text-xs text-text-disabled font-mono mb-1 block">
                       {formatCardNumber(task.cardNumber)}
                     </span>
                   )}
@@ -259,19 +257,25 @@ export function KanbanBoard({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setCardMenuId(cardMenuId === task._id ? null : task._id);
+                              setCardMenuId(
+                                cardMenuId === task._id ? null : task._id
+                              );
                             }}
                             className="p-1 text-text-disabled hover:text-text-primary transition-colors"
                           >
                             <MoreVertical size={13} />
                           </button>
                           {cardMenuId === task._id && (
-                            <div className="absolute right-0 top-full mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-36 py-1">
+                            <div className="absolute right-0 top-full mt-1 bg-bg-card rounded-xl shadow-lg z-[60] w-36 py-1 overflow-hidden">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setCardMenuId(null);
-                                  setConfirmAction({ type: "archive", taskId: task._id, taskTitle: task.title });
+                                  setConfirmAction({
+                                    type: "archive",
+                                    taskId: task._id,
+                                    taskTitle: task.title,
+                                  });
                                 }}
                                 className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-surface transition-colors"
                               >
@@ -281,7 +285,11 @@ export function KanbanBoard({
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setCardMenuId(null);
-                                  setConfirmAction({ type: "delete", taskId: task._id, taskTitle: task.title });
+                                  setConfirmAction({
+                                    type: "delete",
+                                    taskId: task._id,
+                                    taskTitle: task.title,
+                                  });
                                 }}
                                 className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-danger hover:bg-bg-surface transition-colors"
                               >
@@ -306,7 +314,7 @@ export function KanbanBoard({
                       {task.labels.map((label) => (
                         <span
                           key={label}
-                          className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-subtle text-brand font-medium"
+                          className="text-xs px-1.5 py-0.5 rounded-full bg-brand-subtle text-brand font-medium"
                         >
                           {label}
                         </span>
@@ -318,19 +326,21 @@ export function KanbanBoard({
                     task.checklist.length > 0 &&
                     (() => {
                       const done = task.checklist.filter(
-                        (i) => i.completed,
+                        (i) => i.completed
                       ).length;
                       const total = task.checklist.length;
                       return (
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
+                          <div className="flex-1 h-1.5 bg-bg-base rounded-full overflow-hidden">
                             <div
                               className={`h-full rounded-full transition-all ${done === total ? "bg-success" : "bg-brand"}`}
-                              style={{ width: `${(done / total) * 100}%` }}
+                              style={{
+                                width: `${(done / total) * 100}%`,
+                              }}
                             />
                           </div>
                           <span
-                            className={`text-[10px] font-medium whitespace-nowrap ${done === total ? "text-success" : "text-text-secondary"}`}
+                            className={`text-xs font-medium whitespace-nowrap ${done === total ? "text-success" : "text-text-secondary"}`}
                           >
                             {done}/{total}
                           </span>
@@ -355,20 +365,20 @@ export function KanbanBoard({
                               src={avatar}
                               alt={name}
                               title={name}
-                              className="w-5 h-5 rounded-full border border-border flex-shrink-0"
+                              className="w-5 h-5 rounded-full ring-1 ring-bg-card flex-shrink-0"
                             />
                           ) : (
                             <span
                               key={name}
                               title={name}
-                              className="w-5 h-5 rounded-full bg-brand-subtle flex items-center justify-center text-brand text-[8px] font-bold border border-border flex-shrink-0"
+                              className="w-5 h-5 rounded-full bg-brand-subtle flex items-center justify-center text-brand text-xs font-bold ring-1 ring-bg-card flex-shrink-0"
                             >
                               {initials(name)}
                             </span>
                           );
                         })}
                         {task.assignees.length > 3 && (
-                          <span className="w-5 h-5 rounded-full bg-border flex items-center justify-center text-text-secondary text-[8px] font-bold border border-border-subtle flex-shrink-0">
+                          <span className="w-5 h-5 rounded-full bg-bg-base flex items-center justify-center text-text-secondary text-xs font-bold ring-1 ring-bg-card flex-shrink-0">
                             +{task.assignees.length - 3}
                           </span>
                         )}
@@ -408,7 +418,7 @@ export function KanbanBoard({
             </div>
 
             {tasksByStatus(col.slug).length === 0 && (
-              <p className="text-center text-gray-600 dark:text-white text-xs py-4 flex-shrink-0">
+              <p className="text-center text-text-disabled text-xs py-4 flex-shrink-0">
                 Drop cards here
               </p>
             )}
@@ -418,13 +428,19 @@ export function KanbanBoard({
 
       {confirmAction && (
         <ConfirmModal
-          title={confirmAction.type === "delete" ? "Delete Card" : "Archive Card"}
+          title={
+            confirmAction.type === "delete"
+              ? "Delete Card"
+              : "Archive Card"
+          }
           message={
             confirmAction.type === "delete"
               ? `"${confirmAction.taskTitle}" will be permanently deleted. This action cannot be undone.`
               : `"${confirmAction.taskTitle}" will be archived and hidden from the board. You can restore it later.`
           }
-          confirmText={confirmAction.type === "delete" ? "Delete" : "Archive"}
+          confirmText={
+            confirmAction.type === "delete" ? "Delete" : "Archive"
+          }
           variant={confirmAction.type === "delete" ? "danger" : "warning"}
           onConfirm={() => {
             if (confirmAction.type === "delete") {

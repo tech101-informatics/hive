@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { LayoutDashboard, FolderKanban, Users, CalendarDays, LogOut, Settings, Sun, Moon } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Users, CalendarDays, LogOut, Settings, Sun, Moon, BarChart3 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 
 const links = [
@@ -52,6 +52,19 @@ export function Navbar() {
                 </Link>
               );
             })}
+            {isAdmin && (
+              <Link
+                href="/analytics"
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  path.startsWith("/analytics")
+                    ? "bg-brand-subtle text-brand"
+                    : "text-text-secondary hover:bg-bg-card"
+                }`}
+              >
+                <BarChart3 size={16} />
+                Analytics
+              </Link>
+            )}
             {isAdmin && (
               <Link
                 href="/settings/board"
