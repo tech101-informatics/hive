@@ -7,7 +7,6 @@ import { sendSlackNotification, buildSlackMap } from "@/lib/slack";
 const CRON_SECRET = process.env.CRON_SECRET || "";
 
 export async function GET(req: NextRequest) {
-  // Verify cron secret (supports both query param and Vercel Cron Authorization header)
   const secret = req.nextUrl.searchParams.get("secret");
   const authHeader = req.headers.get("authorization");
   const bearerMatch = authHeader === `Bearer ${CRON_SECRET}`;
@@ -17,29 +16,42 @@ export async function GET(req: NextRequest) {
 
   await connectDB();
 
+  // Only send reminders for todo and in-progress cards
+  const reminderSlugs = ["todo", "in-progress"];
+
   const now = new Date();
   const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-  // Find tasks with deadlines in the next 24 hours that are not done
-  const tasks = await Task.find({
+  // Upcoming: in-progress cards with deadlines in the next 24 hours
+  const upcomingTasks = await Task.find({
     deadline: { $gte: now, $lte: in24h },
-    status: { $nin: ["done", "completed"] },
+    status: { $in: reminderSlugs },
+    archived: { $ne: true },
   }).lean();
 
-  if (tasks.length === 0) {
-    return NextResponse.json({ sent: 0, message: "No upcoming deadlines" });
+  // Overdue: in-progress cards with deadlines in the past
+  const overdueTasks = await Task.find({
+    deadline: { $lt: now },
+    status: { $in: reminderSlugs },
+    archived: { $ne: true },
+  }).lean();
+
+  const allTasks = [...upcomingTasks, ...overdueTasks];
+
+  if (allTasks.length === 0) {
+    return NextResponse.json({ sent: 0, message: "No reminders to send" });
   }
 
   const slackMap = await buildSlackMap();
 
-  // Group tasks by project for efficient project name lookup
-  const projectIds = Array.from(new Set(tasks.map((t) => String(t.projectId))));
+  const projectIds = Array.from(new Set(allTasks.map((t) => String(t.projectId))));
   const projects = await Project.find({ _id: { $in: projectIds } }).lean();
   const projectMap = new Map(projects.map((p) => [String(p._id), p.name]));
 
   let sent = 0;
-  for (const task of tasks) {
+  for (const task of allTasks) {
     const projectName = projectMap.get(String(task.projectId)) || "Unknown Project";
+    const isOverdue = new Date(task.deadline!) < now;
     const deadlineStr = new Date(task.deadline!).toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
@@ -50,7 +62,7 @@ export async function GET(req: NextRequest) {
     await sendSlackNotification(
       {
         type: "task_deadline",
-        taskTitle: task.title,
+        taskTitle: isOverdue ? `[Overdue] ${task.title}` : task.title,
         projectName,
         projectId: String(task.projectId),
         taskId: String(task._id),
@@ -63,5 +75,9 @@ export async function GET(req: NextRequest) {
     sent++;
   }
 
-  return NextResponse.json({ sent, message: `Sent ${sent} deadline reminders` });
+  return NextResponse.json({
+    sent,
+    upcoming: upcomingTasks.length,
+    overdue: overdueTasks.length,
+  });
 }
