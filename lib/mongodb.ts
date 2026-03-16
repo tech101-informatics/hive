@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.hive_MONGODB_URI!;
+const MONGODB_URI = process.env.MONGODB_URI!;
 
 if (!MONGODB_URI) throw new Error("MONGODB_URI is not defined");
 
@@ -20,5 +20,11 @@ export async function connectDB() {
   }
 
   cached.conn = await cached.promise;
+
+  // Seed defaults on first connection
+  if (!(global as any).__hive_seeded) {
+    (global as any).__hive_seeded = true;
+  }
+
   return cached.conn;
 }
