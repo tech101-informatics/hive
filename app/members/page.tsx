@@ -230,9 +230,9 @@ export default function MembersPage() {
   return (
     <div className="space-y-6 pb-8">
       {/* Header */}
-      <div className="flex items-center justify-between pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
         <div>
-          <h1 className="text-2xl font-semibold text-text-primary tracking-tight">
+          <h1 className="text-xl md:text-2xl font-semibold text-text-primary tracking-tight">
             Team
           </h1>
           <p className="text-text-secondary text-sm mt-1">
@@ -245,7 +245,7 @@ export default function MembersPage() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {myMember && !myMember.slackUserId && (
             <button
               onClick={linkMySlack}
@@ -253,7 +253,7 @@ export default function MembersPage() {
               className="flex items-center gap-2 text-text-secondary bg-bg-card px-3 py-2 rounded-lg hover:bg-bg-surface font-medium transition-colors disabled:opacity-50 text-sm"
             >
               <Link2 size={15} />
-              {linking ? "Linking..." : "Link my Slack"}
+              <span className="hidden sm:inline">{linking ? "Linking..." : "Link my Slack"}</span>
             </button>
           )}
           {isAdmin && (
@@ -266,7 +266,7 @@ export default function MembersPage() {
                 size={15}
                 className={syncing ? "animate-spin" : ""}
               />
-              {syncing ? "Syncing..." : "Sync"}
+              <span className="hidden sm:inline">{syncing ? "Syncing..." : "Sync"}</span>
             </button>
           )}
           {isAdmin && (
@@ -274,7 +274,7 @@ export default function MembersPage() {
               onClick={openSlackPicker}
               className="flex items-center gap-2 bg-brand text-white px-3 py-2 rounded-lg hover:bg-brand-hover font-medium transition-colors text-sm"
             >
-              <Plus size={16} /> Add from Slack
+              <Plus size={16} /> <span className="hidden sm:inline">Add from Slack</span>
             </button>
           )}
         </div>

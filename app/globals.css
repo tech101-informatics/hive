@@ -118,6 +118,11 @@ body {
     color 0.2s ease;
 }
 
+button,
+a {
+  cursor: pointer;
+}
+
 /* ─── Scrollbar ─────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;

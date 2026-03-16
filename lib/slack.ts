@@ -210,9 +210,41 @@ async function sendDMsToMembers(
   text: string,
   slackMap: Map<string, string>,
   excludeName?: string,
+  eventType?: string,
 ) {
+  // Lazy-load to avoid circular deps
+  let prefMap: Map<string, Record<string, boolean>> | null = null;
+  if (eventType) {
+    try {
+      const { NotificationPreference } = await import("@/models/NotificationPreference");
+      const { Member } = await import("@/models/Member");
+      const members = await Member.find({ name: { $in: names } }).select("name email").lean();
+      const emails = members.map((m: any) => m.email).filter(Boolean);
+      if (emails.length > 0) {
+        const prefs = await NotificationPreference.find({ email: { $in: emails } }).lean();
+        prefMap = new Map();
+        for (const m of members as any[]) {
+          const pref = prefs.find((p: any) => p.email === m.email);
+          if (pref) prefMap.set(m.name, pref.preferences);
+        }
+      }
+    } catch (e) {
+      console.error("[Slack DM] Failed to load notification preferences:", e);
+    }
+  }
+
   for (const name of names) {
     if (name === excludeName) continue;
+
+    // Check notification preference
+    if (eventType && prefMap) {
+      const userPrefs = prefMap.get(name);
+      if (userPrefs && userPrefs[eventType] === false) {
+        console.log(`[Slack DM] Skipping "${name}" — ${eventType} notifications disabled`);
+        continue;
+      }
+    }
+
     const slackId = slackMap.get(name);
     if (slackId) {
       console.log(`[Slack DM] Sending to "${name}" → ${slackId}`);
@@ -330,7 +362,7 @@ export async function sendSlackNotification(
             `Project: *${event.projectName}*\n` +
             `Priority: *${priority}*  |  Due: ${deadline}`;
           if (labels) dmMsg += `\nLabels: ${labels}`;
-          await sendDMsToMembers(event.assignees, dmMsg, map);
+          await sendDMsToMembers(event.assignees, dmMsg, map, undefined, "task_created");
         }
         return ts;
       }
@@ -349,6 +381,8 @@ export async function sendSlackNotification(
             event.assignees,
             `${label} *Status update:* ${link} moved *${event.from}* -> *${event.to}*${byText}`,
             map,
+            undefined,
+            "task_status_changed",
           );
         }
         break;
@@ -362,11 +396,12 @@ export async function sendSlackNotification(
           `*Assigned:* ${link} -> ${tagUsers(event.assignees, map)}${byText}`,
           threadTs,
         );
-        // DM all assignees including the person who assigned (self-assign should notify)
         await sendDMsToMembers(
           event.assignees,
           `You've been assigned to ${link} in *${event.projectName}*${byText}`,
           map,
+          undefined,
+          "task_assigned",
         );
         break;
       }
@@ -381,6 +416,8 @@ export async function sendSlackNotification(
             event.assignees,
             `*Deadline update:* ${link} is due on *${event.deadline}*`,
             map,
+            undefined,
+            "task_deadline",
           );
         }
         break;
@@ -399,6 +436,8 @@ export async function sendSlackNotification(
             event.assignees,
             `*Priority update:* ${link} changed *${event.from}* -> *${event.to}*${byText}`,
             map,
+            undefined,
+            "task_priority_changed",
           );
         }
         break;
@@ -422,6 +461,8 @@ export async function sendSlackNotification(
             event.assignees,
             `*Labels updated:* ${link} -- ${changeText}${byText}`,
             map,
+            undefined,
+            "task_labels_changed",
           );
         }
         break;
@@ -438,6 +479,7 @@ export async function sendSlackNotification(
             `${tagUser(event.author, map)} commented on ${link}`,
             map,
             event.author,
+            "comment_added",
           );
         }
         break;

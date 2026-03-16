@@ -19,6 +19,7 @@ interface BoardColumn {
   slug: string;
   color: string;
   order: number;
+  wipLimit?: number;
   isDefault: boolean;
 }
 
@@ -230,12 +231,12 @@ export default function BoardSettingsPage() {
 
   return (
     <div className="max-w-2xl">
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
-          <h1 className="text-xl font-semibold text-text-primary tracking-tight">
+          <h1 className="text-lg md:text-xl font-semibold text-text-primary tracking-tight">
             Board Columns
           </h1>
-          <p className="text-text-secondary text-sm mt-1">
+          <p className="text-text-secondary text-sm mt-1 hidden sm:block">
             Configure the columns on your Kanban board
           </p>
         </div>
@@ -265,7 +266,7 @@ export default function BoardSettingsPage() {
                 setDraggingIdx(null);
                 setDragOverIdx(null);
               }}
-              className={`flex items-center gap-3 px-4 py-3 transition-colors ${
+              className={`flex flex-wrap items-center gap-2 md:gap-3 px-3 md:px-4 py-3 transition-colors ${
                 draggingIdx === idx ? "opacity-50" : ""
               } ${dragOverIdx === idx ? "bg-brand-subtle" : "hover:bg-bg-surface"}`}
             >
@@ -303,12 +304,36 @@ export default function BoardSettingsPage() {
                     <span className="text-sm font-medium text-text-primary">
                       {col.label}
                     </span>
-                    <span className="text-xs text-text-600 font-mono">
+                    <span className="text-xs text-text-600 font-mono hidden sm:inline">
                       {col.slug}
                     </span>
                   </div>
                 )}
               </div>
+
+              <input
+                type="number"
+                min={0}
+                className="w-12 text-xs text-center bg-bg-base text-text-secondary rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-brand flex-shrink-0"
+                value={col.wipLimit || ""}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 0;
+                  setColumns((prev) =>
+                    prev.map((c) => (c._id === col._id ? { ...c, wipLimit: val } : c))
+                  );
+                }}
+                onBlur={(e) => {
+                  const val = parseInt(e.target.value) || 0;
+                  fetch(`/api/board-status/${col._id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ wipLimit: val }),
+                  });
+                  showToast("Saved");
+                }}
+                placeholder="WIP"
+                title="WIP limit (0 = no limit)"
+              />
 
               {col.isDefault ? (
                 <span className="flex items-center gap-1 text-xs text-warning bg-warning-subtle px-2 py-0.5 rounded-full font-medium flex-shrink-0">
@@ -317,7 +342,7 @@ export default function BoardSettingsPage() {
               ) : (
                 <button
                   onClick={() => setDefault(col._id)}
-                  className="text-xs text-text-disabled hover:text-warning transition-colors flex-shrink-0"
+                  className="text-xs text-text-disabled hover:text-warning transition-colors flex-shrink-0 hidden sm:block"
                   title="Set as default"
                 >
                   Set Default

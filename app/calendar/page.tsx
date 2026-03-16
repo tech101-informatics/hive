@@ -173,18 +173,14 @@ export default function CalendarPage() {
   // Count overdue
   const overdueCount = tasks.filter((t) => {
     if (!t.deadline) return false;
-    const doneStatuses = columns.filter(
-      (c) => c.order === Math.max(...columns.map((x) => x.order)),
-    );
-    const doneSlugs = doneStatuses.map((d) => d.slug);
-    return new Date(t.deadline) < today && !doneSlugs.includes(t.status);
+    return new Date(t.deadline) < today && t.status !== "done";
   }).length;
 
   return (
     <div className="space-y-6 pb-8">
       {/* Header */}
-      <div className="flex items-center justify-between pt-2">
-        <div>
+      <div className="flex items-center justify-between pt-2 flex-wrap gap-3">
+        <div className="w-full md:w-fit shrink-0">
           <h1 className="text-2xl font-semibold text-text-primary tracking-tight">
             Calendar
           </h1>
@@ -210,7 +206,7 @@ export default function CalendarPage() {
             >
               <ChevronLeft size={18} className="text-text-secondary" />
             </button>
-            <span className="px-4 py-1.5 text-sm font-semibold text-text-primary min-w-[160px] text-center">
+            <span className="px-3 md:px-4 py-1.5 text-sm font-semibold text-text-primary min-w-[120px] md:min-w-[160px] text-center">
               {monthLabel}
             </span>
             <button
@@ -223,8 +219,75 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Calendar grid */}
-      <div className="rounded-2xl bg-bg-card overflow-hidden">
+      {/* Mobile agenda view */}
+      <div className="md:hidden space-y-2">
+        {cells
+          .filter(
+            (cell) =>
+              cell.dateStr && (tasksByDate[cell.dateStr]?.length || 0) > 0,
+          )
+          .map((cell, idx) => {
+            const dayTasks = tasksByDate[cell.dateStr!] || [];
+            const isToday = cell.dateStr === todayStr;
+            const dateObj = new Date(cell.dateStr! + "T00:00:00");
+            return (
+              <div key={idx} className="rounded-2xl bg-bg-card p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span
+                    className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      isToday
+                        ? "bg-brand text-white"
+                        : "bg-bg-base text-text-secondary"
+                    }`}
+                  >
+                    {dateObj.toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </span>
+                  <span className="text-xs text-text-disabled">
+                    {dayTasks.length} card{dayTasks.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  {dayTasks.map((task) => {
+                    const project = projectMap[task.projectId];
+                    const projectColor = project?.color || "#6366f1";
+                    return (
+                      <button
+                        key={task._id}
+                        onClick={() => openTask(task)}
+                        className="w-full text-left px-3 py-2 rounded-lg text-sm cursor-pointer font-medium truncate block hover:opacity-80 transition-opacity"
+                        style={{
+                          backgroundColor: projectColor + "12",
+                          color: projectColor,
+                        }}
+                      >
+                        <span
+                          className={`inline-block w-2 h-2 rounded-full mr-2 ${PRIORITY_DOT[task.priority]}`}
+                        />
+                        {task.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        {cells.filter(
+          (c) => c.dateStr && (tasksByDate[c.dateStr]?.length || 0) > 0,
+        ).length === 0 && (
+          <div className="text-center py-12 rounded-2xl bg-bg-card">
+            <p className="text-text-disabled text-sm">
+              No tasks with deadlines this month
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop calendar grid */}
+      <div className="hidden md:block rounded-2xl bg-bg-card overflow-hidden">
         {/* Day headers */}
         <div className="grid grid-cols-7">
           {DAYS.map((d) => (

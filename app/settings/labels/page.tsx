@@ -142,12 +142,12 @@ export default function LabelsSettingsPage() {
 
   return (
     <div className="max-w-2xl">
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
-          <h1 className="text-xl font-semibold text-text-primary tracking-tight">
+          <h1 className="text-lg md:text-xl font-semibold text-text-primary tracking-tight">
             Labels / Tags
           </h1>
-          <p className="text-text-secondary text-sm mt-1">
+          <p className="text-text-secondary text-sm mt-1 hidden sm:block">
             Manage labels applied to cards across all boards
           </p>
         </div>
@@ -163,7 +163,7 @@ export default function LabelsSettingsPage() {
       {showAddForm && (
         <div className="mb-5 rounded-2xl bg-bg-card p-4">
           <div className="space-y-3">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 autoFocus
                 className="flex-1 text-sm bg-bg-base text-text-primary placeholder:text-text-disabled rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand"
@@ -179,14 +179,14 @@ export default function LabelsSettingsPage() {
                 }}
               />
               <input
-                className="w-36 text-sm bg-bg-base text-text-primary placeholder:text-text-disabled rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand"
+                className="w-full sm:w-36 text-sm bg-bg-base text-text-primary placeholder:text-text-disabled rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand"
                 value={newCategory}
                 onChange={(e) => setNewCategory(e.target.value)}
                 placeholder="Category (optional)"
               />
             </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
                 {PRESET_COLORS.map((c) => (
                   <button
                     key={c}

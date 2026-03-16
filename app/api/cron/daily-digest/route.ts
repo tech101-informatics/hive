@@ -4,6 +4,10 @@ import { Activity } from "@/models/Activity";
 import { Task } from "@/models/Task";
 import { Project } from "@/models/Project";
 import { BoardStatus } from "@/models/BoardStatus";
+import { RecurringTask } from "@/models/RecurringTask";
+import { Counter } from "@/models/Counter";
+import { calculateNextRunDate } from "@/lib/recurring";
+import { trackInitialStatus, trackInitialAssignees } from "@/lib/time-tracking";
 
 const CRON_SECRET = process.env.CRON_SECRET || "";
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN || "";
@@ -41,6 +45,53 @@ export async function GET(req: NextRequest) {
   }
 
   await connectDB();
+
+  // ── Process recurring tasks ──
+  let recurringCreated = 0;
+  const now = new Date();
+  const dueRecurring = await RecurringTask.find({
+    enabled: true,
+    nextRunDate: { $lte: now },
+  }).lean();
+
+  for (const rt of dueRecurring) {
+    try {
+      const counter = await Counter.findByIdAndUpdate(
+        "taskCardNumber",
+        { $inc: { seq: 1 } },
+        { new: true, upsert: true },
+      );
+      const newTask = await Task.create({
+        title: rt.title,
+        description: rt.description,
+        priority: rt.priority,
+        assignees: rt.assignees,
+        labels: rt.labels,
+        checklist: (rt.checklist || []).map((item: any, i: number) => ({
+          text: item.text,
+          completed: false,
+          order: item.order ?? i,
+        })),
+        status: rt.status || "todo",
+        projectId: rt.projectId,
+        cardNumber: counter.seq,
+      });
+
+      const tid = String(newTask._id);
+      const pid = String(rt.projectId);
+      trackInitialStatus(tid, pid, newTask.status).catch(() => {});
+      if (rt.assignees?.length) {
+        trackInitialAssignees(tid, pid, rt.assignees).catch(() => {});
+      }
+
+      await RecurringTask.findByIdAndUpdate(rt._id, {
+        nextRunDate: calculateNextRunDate(rt.frequency, now, rt.dayOfWeek, rt.dayOfMonth),
+      });
+      recurringCreated++;
+    } catch (e) {
+      console.error(`[RecurringTask] Failed to create from ${rt._id}:`, e);
+    }
+  }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -135,6 +186,7 @@ export async function GET(req: NextRequest) {
   if (statusChanges) stats.push(`*${statusChanges}* status changes`);
   if (commentsAdded) stats.push(`*${commentsAdded}* comments`);
   if (timeLogged) stats.push(`*${timeLogged}* time entries`);
+  if (recurringCreated > 0) stats.push(`*${recurringCreated}* recurring`);
   lines.push(stats.length ? stats.join("  |  ") : "_No activity today_");
   lines.push("");
 
@@ -212,6 +264,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     sent: true,
     stats: { tasksCreated, tasksDone, statusChanges, commentsAdded, timeLogged },
+    recurringCreated,
     inProgress: inProgressTasks.length,
     overdue: overdueTasks.length,
     upcoming: upcomingTasks.length,

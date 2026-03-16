@@ -5,6 +5,7 @@ export interface IBoardStatus extends Document {
   slug: string;
   color: string;
   order: number;
+  wipLimit: number;
   isDefault: boolean;
   createdAt: Date;
 }
@@ -15,6 +16,7 @@ const BoardStatusSchema = new Schema<IBoardStatus>(
     slug: { type: String, required: true, unique: true },
     color: { type: String, default: "#6366f1" },
     order: { type: Number, required: true },
+    wipLimit: { type: Number, default: 0 },
     isDefault: { type: Boolean, default: false },
   },
   { timestamps: true }

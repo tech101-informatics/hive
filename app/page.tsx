@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { connectDB } from "@/lib/mongodb";
 import { Project } from "@/models/Project";
@@ -373,7 +375,7 @@ export default async function Dashboard() {
                       {p.name}
                     </span>
                     {progress.total > 0 && (
-                      <div className="flex items-center gap-2.5 w-36">
+                      <div className="flex items-center gap-2.5 w-24 md:w-36">
                         <div className="flex-1 h-1.5 rounded-full bg-bg-base overflow-hidden">
                           <div
                             className="h-full rounded-full transition-all"

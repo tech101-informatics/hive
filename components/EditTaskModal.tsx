@@ -23,6 +23,9 @@ import {
   Clock,
   History,
   MoreVertical,
+  Ban,
+  FileText,
+  Search,
 } from "lucide-react";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { AssigneeDropdown, MemberAvatar } from "@/components/AssigneeDropdown";
@@ -54,6 +57,7 @@ interface Task {
   branch?: string;
   pr?: string;
   labels?: string[];
+  blockedBy?: string[];
   cardNumber?: number;
   checklist?: ChecklistItem[];
 }
@@ -84,6 +88,7 @@ interface Props {
   onClose: () => void;
   onUpdated: () => void;
   onDeleted?: () => void;
+  readOnly?: boolean;
 }
 
 const PRIORITY_OPTIONS = [
@@ -101,6 +106,7 @@ export function EditTaskModal({
   onClose,
   onUpdated,
   onDeleted,
+  readOnly = false,
 }: Props) {
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
@@ -117,6 +123,7 @@ export function EditTaskModal({
     branch: string;
     pr: string;
     labels: string[];
+    blockedBy: string[];
     checklist: ChecklistItem[];
   }>({
     title: task.title,
@@ -129,6 +136,7 @@ export function EditTaskModal({
     branch: task.branch || "",
     pr: task.pr || "",
     labels: task.labels || [],
+    blockedBy: task.blockedBy || [],
     checklist: task.checklist || [],
   });
   const [members, setMembers] = useState<
@@ -148,6 +156,20 @@ export function EditTaskModal({
   const [comments, setComments] = useState<CommentData[]>([]);
   const [postingComment, setPostingComment] = useState(false);
   const [newChecklistItem, setNewChecklistItem] = useState("");
+
+  // Parent card
+  const [showParentDropdown, setShowParentDropdown] = useState(false);
+  const [parentSearch, setParentSearch] = useState("");
+  const parentCardRef = useRef<HTMLDivElement>(null);
+
+  // Dependencies
+  const [showBlockedByDropdown, setShowBlockedByDropdown] = useState(false);
+  const [blockerSearch, setBlockerSearch] = useState("");
+  const blockedByRef = useRef<HTMLDivElement>(null);
+
+  // Save as template
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
   const [copied, setCopied] = useState<"number" | "link" | null>(null);
   const [showCopyMenu, setShowCopyMenu] = useState(false);
   const copyMenuRef = useRef<HTMLDivElement>(null);
@@ -187,6 +209,7 @@ export function EditTaskModal({
   const [showCardMenu, setShowCardMenu] = useState(false);
   const cardMenuRef = useRef<HTMLDivElement>(null);
   const isAdmin = session?.user?.role === "admin";
+  const canEdit = !readOnly;
 
   const cardNumberFormatted = task.cardNumber
     ? `SP-${String(task.cardNumber).padStart(3, "0")}`
@@ -259,10 +282,31 @@ export function EditTaskModal({
         setShowLabelDropdown(false);
         setLabelSearch("");
       }
+      if (
+        showBlockedByDropdown &&
+        blockedByRef.current &&
+        !blockedByRef.current.contains(e.target as Node)
+      ) {
+        setShowBlockedByDropdown(false);
+        setBlockerSearch("");
+      }
+      if (
+        showParentDropdown &&
+        parentCardRef.current &&
+        !parentCardRef.current.contains(e.target as Node)
+      ) {
+        setShowParentDropdown(false);
+        setParentSearch("");
+      }
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [showPriorityDropdown, showLabelDropdown]);
+  }, [
+    showPriorityDropdown,
+    showLabelDropdown,
+    showBlockedByDropdown,
+    showParentDropdown,
+  ]);
 
   const handleClose = () => {
     setOpen(false);
@@ -270,11 +314,13 @@ export function EditTaskModal({
   };
 
   const updateField = (field: string, value: string) => {
+    if (readOnly) return;
     setForm((prev) => ({ ...prev, [field]: value }));
     setDirty(true);
   };
 
   const autoSave = (data: Record<string, unknown>) => {
+    if (readOnly) return;
     fetch(`/api/tasks/${task._id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -468,12 +514,12 @@ export function EditTaskModal({
 
       {/* Full overlay panel */}
       <div
-        className={`fixed inset-4 md:inset-8 lg:inset-12 bg-bg-surface rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-200 ${
+        className={`fixed inset-0 md:inset-4 lg:inset-8 bg-bg-surface md:rounded-2xl shadow-2xl z-50 flex flex-col transition-all duration-200 ${
           open ? "opacity-100 scale-100" : "opacity-0 scale-95"
         }`}
       >
         {/* Top bar */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-bg-card">
+        <div className="flex items-center justify-between px-4 md:px-6 py-3 border-b border-border bg-bg-card md:rounded-t-2xl">
           <div className="flex items-center gap-2 text-sm">
             <div className="relative" ref={copyMenuRef}>
               <button
@@ -521,7 +567,12 @@ export function EditTaskModal({
             <span className="font-medium text-text-primary">{form.title}</span>
           </div>
           <div className="flex items-center gap-2">
-            {dirty && (
+            {readOnly && (
+              <span className="text-xs text-text-disabled bg-bg-base px-2.5 py-1 rounded-lg">
+                Read-only
+              </span>
+            )}
+            {canEdit && dirty && (
               <button
                 onClick={handleSubmit}
                 disabled={saving}
@@ -530,7 +581,7 @@ export function EditTaskModal({
                 {saving ? "Saving..." : "Save"}
               </button>
             )}
-            {isAdmin && (
+            {canEdit && isAdmin && (
               <div className="relative" ref={cardMenuRef}>
                 <button
                   onClick={() => setShowCardMenu((p) => !p)}
@@ -539,23 +590,32 @@ export function EditTaskModal({
                   <MoreVertical size={16} className="text-text-disabled" />
                 </button>
                 {showCardMenu && (
-                  <div className="absolute right-0 top-full mt-1 bg-bg-card border border-border rounded-lg shadow-lg z-[60] w-40 py-1">
+                  <div className="absolute right-0 top-full mt-1 bg-bg-card rounded-xl shadow-lg z-[100] w-48 py-1">
+                    <button
+                      onClick={() => {
+                        setShowCardMenu(false);
+                        setShowSaveTemplate(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-primary hover:bg-bg-surface transition-colors cursor-pointer"
+                    >
+                      <FileText size={14} /> Save as Template
+                    </button>
+                    <div className="h-px bg-bg-base mx-2 my-0.5" />
                     <button
                       onClick={() => {
                         setShowCardMenu(false);
                         setConfirmAction("archive");
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-primary hover:bg-bg-surface transition-colors"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-primary hover:bg-bg-surface transition-colors cursor-pointer"
                     >
                       <Archive size={14} /> Archive
                     </button>
-                    <div className="h-px bg-border-subtle my-0.5" />
                     <button
                       onClick={() => {
                         setShowCardMenu(false);
                         setConfirmAction("delete");
                       }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-danger hover:bg-bg-surface transition-colors"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-danger hover:bg-bg-surface transition-colors cursor-pointer"
                     >
                       <Trash2 size={14} /> Delete
                     </button>
@@ -572,25 +632,27 @@ export function EditTaskModal({
           </div>
         </div>
 
-        {/* Two-column layout */}
-        <div className="flex-1 flex overflow-hidden">
+        {/* Two-column layout — stacks on mobile */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden md:rounded-b-2xl">
           {/* LEFT — Card details */}
-          <div className="flex-1 overflow-y-auto p-8 pt-5">
+          <div className="flex-1 md:flex-1 overflow-y-auto p-4 md:p-8 pt-4 md:pt-5 min-h-0">
             {/* Title */}
             <input
-              className="w-full text-2xl font-bold text-text-primary bg-transparent border-0 outline-none placeholder:text-text-disabled mb-1"
+              className="w-full text-xl md:text-2xl font-bold text-text-primary bg-transparent border-0 outline-none placeholder:text-text-disabled mb-1"
               value={form.title}
               onChange={(e) => {
+                if (!canEdit) return;
                 updateField("title", e.target.value);
                 setError("");
               }}
+              readOnly={readOnly}
               placeholder="Card title..."
             />
             {error && <p className="text-danger text-xs mb-2">{error}</p>}
 
             {/* On boards section */}
             <div className="bg-bg-card border border-border rounded-xl mb-6 overflow-hidden mt-4">
-              <div className="px-4 py-2 border-b border-border bg-bg-surface/50">
+              <div className="px-3 md:px-4 py-2 border-b border-border bg-bg-surface/50">
                 <span className="text-sm font-semibold text-text-primary">
                   On boards (1)
                 </span>
@@ -599,18 +661,18 @@ export function EditTaskModal({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-text-secondary">
-                      <th className="px-4 py-1 font-medium">Parent card</th>
-                      <th className="px-4 py-1 font-medium">Board</th>
-                      <th className="px-4 py-1 font-medium">Status</th>
+                      <th className="px-3 md:px-4 py-1 font-medium hidden sm:table-cell">Parent</th>
+                      <th className="px-3 md:px-4 py-1 font-medium">Board</th>
+                      <th className="px-3 md:px-4 py-1 font-medium">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr className="border-t border-border-subtle">
-                      <td className="px-4 py-1">
+                      <td className="px-3 md:px-4 py-1 hidden sm:table-cell">
                         {parentCard ? (
                           <span className="inline-flex items-center gap-1 bg-bg-surface text-text-primary px-2 py-0.5 rounded text-xs font-medium">
                             <Link2 size={10} />
-                            {parentCard.title}
+                            <span className="truncate max-w-[120px]">{parentCard.title}</span>
                           </span>
                         ) : (
                           <span className="text-text-disabled text-xs">
@@ -618,12 +680,12 @@ export function EditTaskModal({
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-1">
-                        <span className="text-text-primary font-medium">
+                      <td className="px-3 md:px-4 py-1">
+                        <span className="text-text-primary font-medium text-xs md:text-sm">
                           {boardName || "—"}
                         </span>
                       </td>
-                      <td className="px-4 py-1">
+                      <td className="px-3 md:px-4 py-1">
                         <span
                           className="inline-block rounded-full text-xs font-semibold"
                           style={{ color: statusOpt.color }}
@@ -640,7 +702,7 @@ export function EditTaskModal({
               <div className="space-y-0">
                 {/* Priority */}
                 <div className="flex items-center py-3 border-t border-border-subtle">
-                  <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary">
+                  <div className="flex items-center gap-2.5 w-28 md:w-40 text-sm text-text-secondary">
                     <Flag size={15} />
                     <span>Priority</span>
                   </div>
@@ -687,7 +749,7 @@ export function EditTaskModal({
 
                 {/* Assignees */}
                 <div className="flex items-start py-3 border-t border-border-subtle">
-                  <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary pt-0.5">
+                  <div className="flex items-center gap-2.5 w-28 md:w-40 text-sm text-text-secondary pt-0.5">
                     <User size={15} />
                     <span>Assignees</span>
                   </div>
@@ -703,7 +765,7 @@ export function EditTaskModal({
 
                 {/* Deadline */}
                 <div className="flex items-center py-3 border-t border-border-subtle">
-                  <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary">
+                  <div className="flex items-center gap-2.5 w-28 md:w-40 text-sm text-text-secondary">
                     <Calendar size={15} />
                     <span>Deadline</span>
                   </div>
@@ -719,28 +781,107 @@ export function EditTaskModal({
                 </div>
 
                 {/* Parent card */}
-                <div className="flex items-center py-3 border-t border-border-subtle">
-                  <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary">
+                <div className="flex items-start py-3 border-t border-border-subtle">
+                  <div className="flex items-center gap-2.5 w-28 md:w-40 text-sm text-text-secondary pt-0.5">
                     <Link2 size={15} />
                     <span>Parent Card</span>
                   </div>
-                  <select
-                    className="text-sm bg-transparent border-0 outline-none cursor-pointer font-medium text-text-primary"
-                    value={form.parentId}
-                    onChange={(e) => updateField("parentId", e.target.value)}
+                  <div
+                    className="flex-1 relative flex items-center gap-2"
+                    ref={parentCardRef}
                   >
-                    <option value="">None</option>
-                    {parentCandidates.map((t) => (
-                      <option key={t._id} value={t._id}>
-                        {t.title}
-                      </option>
-                    ))}
-                  </select>
+                    {form.parentId ? (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-brand-subtle text-brand font-medium">
+                        {parentCard?.cardNumber
+                          ? `SP-${parentCard.cardNumber}`
+                          : ""}{" "}
+                        {parentCard?.title || "Unknown"}
+                        <button
+                          type="button"
+                          onClick={() => updateField("parentId", "")}
+                          className="hover:opacity-60 transition-opacity"
+                        >
+                          <X size={10} />
+                        </button>
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => setShowParentDropdown((p) => !p)}
+                      className="text-sm text-text-disabled hover:text-brand transition-colors flex items-center gap-1 mt-1"
+                    >
+                      <Plus size={12} />{" "}
+                      {form.parentId ? "Change" : "Set parent"}
+                    </button>
+                    {showParentDropdown && (
+                      <div className="absolute top-full left-0 mt-1 bg-bg-card rounded-xl shadow-lg z-[60] w-[calc(100vw-3rem)] max-w-72 max-h-48 flex flex-col">
+                        <div className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={parentSearch}
+                            onChange={(e) => setParentSearch(e.target.value)}
+                            placeholder="Search cards..."
+                            className="w-full text-sm bg-bg-base text-text-primary rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-brand placeholder:text-text-disabled"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="overflow-y-auto py-1">
+                          {form.parentId && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updateField("parentId", "");
+                                setShowParentDropdown(false);
+                                setParentSearch("");
+                              }}
+                              className="w-full text-left px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-surface transition-colors"
+                            >
+                              None
+                            </button>
+                          )}
+                          {parentCandidates
+                            .filter(
+                              (t) =>
+                                !parentSearch ||
+                                t.title
+                                  .toLowerCase()
+                                  .includes(parentSearch.toLowerCase()) ||
+                                (t.cardNumber &&
+                                  `SP-${t.cardNumber}`
+                                    .toLowerCase()
+                                    .includes(parentSearch.toLowerCase())),
+                            )
+                            .slice(0, 15)
+                            .map((t) => (
+                              <button
+                                key={t._id}
+                                type="button"
+                                onClick={() => {
+                                  updateField("parentId", t._id);
+                                  setShowParentDropdown(false);
+                                  setParentSearch("");
+                                }}
+                                className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors text-left ${
+                                  form.parentId === t._id
+                                    ? "filter-item-active"
+                                    : "text-text-primary hover:bg-bg-surface"
+                                }`}
+                              >
+                                <span className="text-text-disabled text-xs font-mono">
+                                  {t.cardNumber ? `SP-${t.cardNumber}` : ""}
+                                </span>
+                                <span className="truncate">{t.title}</span>
+                              </button>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Branch */}
                 <div className="flex items-center py-3 border-t border-border-subtle">
-                  <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary">
+                  <div className="flex items-center gap-2.5 w-28 md:w-40 text-sm text-text-secondary">
                     <GitBranch size={15} />
                     <span>Branch</span>
                   </div>
@@ -755,7 +896,7 @@ export function EditTaskModal({
 
                 {/* PR */}
                 <div className="flex items-center py-3 border-t border-border-subtle">
-                  <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary">
+                  <div className="flex items-center gap-2.5 w-28 md:w-40 text-sm text-text-secondary">
                     <GitPullRequest size={15} />
                     <span>Pull Request</span>
                   </div>
@@ -770,11 +911,14 @@ export function EditTaskModal({
 
                 {/* Labels */}
                 <div className="flex items-start py-3 border-t border-b border-border-subtle">
-                  <div className="flex items-center gap-2.5 w-40 text-sm text-text-secondary pt-0.5">
+                  <div className="flex items-center gap-2.5 w-28 md:w-40 text-sm text-text-secondary pt-0.5">
                     <Tag size={15} />
                     <span>Labels</span>
                   </div>
-                  <div className="flex-1 relative" ref={labelDropdownRef}>
+                  <div
+                    className="flex-1 relative flex items-center flex-wrap"
+                    ref={labelDropdownRef}
+                  >
                     <div className="flex flex-wrap gap-1.5 mb-1">
                       {form.labels.map((label) => {
                         const labelData = allLabels.find(
@@ -896,6 +1040,113 @@ export function EditTaskModal({
                     )}
                   </div>
                 </div>
+
+                {/* Blocked By */}
+                <div className="flex items-start py-3 border-t border-bg-base">
+                  <div className="flex items-center gap-2.5 w-28 md:w-40 text-sm text-text-secondary pt-0.5">
+                    <Ban size={15} />
+                    <span>Blocked By</span>
+                  </div>
+                  <div className="flex-1 relative" ref={blockedByRef}>
+                    <div className="flex flex-wrap gap-1.5 mb-1">
+                      {form.blockedBy.map((blockerId) => {
+                        const blockerTask = allTasks.find(
+                          (t) => t._id === blockerId,
+                        );
+                        return (
+                          <span
+                            key={blockerId}
+                            className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-danger-subtle text-danger font-medium"
+                          >
+                            {blockerTask?.cardNumber
+                              ? `SP-${blockerTask.cardNumber}`
+                              : ""}{" "}
+                            {blockerTask?.title || "Unknown"}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = form.blockedBy.filter(
+                                  (id) => id !== blockerId,
+                                );
+                                setForm((prev) => ({
+                                  ...prev,
+                                  blockedBy: updated,
+                                }));
+                                autoSave({ blockedBy: updated });
+                              }}
+                              className="hover:opacity-60 transition-opacity"
+                            >
+                              <X size={10} />
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowBlockedByDropdown((p) => !p)}
+                      className="text-sm text-text-disabled hover:text-brand transition-colors flex items-center gap-1"
+                    >
+                      <Plus size={12} /> Add blocker
+                    </button>
+                    {showBlockedByDropdown && (
+                      <div className="absolute top-full left-0 mt-1 bg-bg-card rounded-xl shadow-lg z-[60] w-[calc(100vw-3rem)] max-w-72 max-h-48 flex flex-col">
+                        <div className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={blockerSearch}
+                            onChange={(e) => setBlockerSearch(e.target.value)}
+                            placeholder="Search cards..."
+                            className="w-full text-sm bg-bg-base text-text-primary rounded-lg px-2 py-1 outline-none focus:ring-1 focus:ring-brand placeholder:text-text-disabled"
+                            autoFocus
+                          />
+                        </div>
+                        <div className="overflow-y-auto py-1">
+                          {allTasks
+                            .filter(
+                              (t) =>
+                                t._id !== task._id &&
+                                !form.blockedBy.includes(t._id),
+                            )
+                            .filter(
+                              (t) =>
+                                !blockerSearch ||
+                                t.title
+                                  .toLowerCase()
+                                  .includes(blockerSearch.toLowerCase()) ||
+                                (t.cardNumber &&
+                                  `SP-${t.cardNumber}`
+                                    .toLowerCase()
+                                    .includes(blockerSearch.toLowerCase())),
+                            )
+                            .slice(0, 15)
+                            .map((t) => (
+                              <button
+                                key={t._id}
+                                type="button"
+                                onClick={() => {
+                                  const updated = [...form.blockedBy, t._id];
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    blockedBy: updated,
+                                  }));
+                                  autoSave({ blockedBy: updated });
+                                  setBlockerSearch("");
+                                  setShowBlockedByDropdown(false);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-surface transition-colors text-left"
+                              >
+                                <span className="text-text-disabled text-xs font-mono">
+                                  {t.cardNumber ? `SP-${t.cardNumber}` : ""}
+                                </span>
+                                <span className="truncate">{t.title}</span>
+                              </button>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -914,13 +1165,24 @@ export function EditTaskModal({
 
             {/* Description */}
             <div className="mt-6">
-              <RichTextEditor
-                mode="field"
-                initialContent={form.description}
-                onChange={(html) => updateField("description", html)}
-                placeholder="Add a description..."
-                mentionUsers={mentionUsersList}
-              />
+              {readOnly ? (
+                form.description ? (
+                  <div
+                    className="text-sm text-text-secondary prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: form.description }}
+                  />
+                ) : (
+                  <p className="text-sm text-text-disabled italic">No description</p>
+                )
+              ) : (
+                <RichTextEditor
+                  mode="field"
+                  initialContent={form.description}
+                  onChange={(html) => updateField("description", html)}
+                  placeholder="Add a description..."
+                  mentionUsers={mentionUsersList}
+                />
+              )}
             </div>
 
             {/* Checklist */}
@@ -1186,7 +1448,7 @@ export function EditTaskModal({
           </div>
 
           {/* RIGHT — Comments & Activity panel */}
-          <div className="w-[380px] flex-shrink-0 flex flex-col border-l border-border bg-bg-surface">
+          <div className="w-full md:w-[380px] flex-shrink-0 flex flex-col border-t md:border-t-0 md:border-l border-border bg-bg-surface">
             {/* Tabs */}
             <div className="flex border-b border-border">
               <button
@@ -1273,14 +1535,16 @@ export function EditTaskModal({
                 </div>
 
                 {/* Comment input */}
-                <div className="border-t border-border p-4">
-                  <RichTextEditor
-                    onSubmit={handleAddComment}
-                    disabled={postingComment}
-                    placeholder="Add a comment..."
-                    mentionUsers={mentionUsersList}
-                  />
-                </div>
+                {canEdit && (
+                  <div className="border-t border-border p-4">
+                    <RichTextEditor
+                      onSubmit={handleAddComment}
+                      disabled={postingComment}
+                      placeholder="Add a comment..."
+                      mentionUsers={mentionUsersList}
+                    />
+                  </div>
+                )}
               </>
             ) : (
               /* Activity feed */
@@ -1327,6 +1591,64 @@ export function EditTaskModal({
           </div>
         </div>
       </div>
+
+      {/* Save as Template dialog */}
+      {showSaveTemplate && (
+        <div className="fixed inset-0 bg-black/50 z-[102] flex items-center justify-center p-4">
+          <div className="bg-bg-card rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <h3 className="text-lg font-semibold text-text-primary mb-3">
+              Save as Template
+            </h3>
+            <p className="text-sm text-text-secondary mb-4">
+              Save this card&apos;s structure as a reusable template.
+            </p>
+            <input
+              autoFocus
+              className="w-full text-sm bg-bg-base text-text-primary placeholder:text-text-disabled rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand mb-4"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="Template name..."
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && templateName.trim()) {
+                  fetch(`/api/tasks/${task._id}/save-as-template`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: templateName.trim() }),
+                  }).then(() => {
+                    setShowSaveTemplate(false);
+                    setTemplateName("");
+                  });
+                }
+                if (e.key === "Escape") setShowSaveTemplate(false);
+              }}
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowSaveTemplate(false)}
+                className="flex-1 px-4 py-2 bg-bg-base rounded-lg text-text-secondary hover:bg-bg-surface text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!templateName.trim()) return;
+                  fetch(`/api/tasks/${task._id}/save-as-template`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: templateName.trim() }),
+                  }).then(() => {
+                    setShowSaveTemplate(false);
+                    setTemplateName("");
+                  });
+                }}
+                className="flex-1 bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-hover text-sm font-medium"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmAction && (
         <ConfirmModal

@@ -179,7 +179,10 @@ export function AssigneeDropdown({
 
   // ── variant: "field" ──
   return (
-    <div className="flex-1 relative" ref={ref}>
+    <div
+      className="flex-1 relative flex items-center justify-start gap-2 flex-wrap"
+      ref={ref}
+    >
       <div className="flex flex-wrap gap-1.5 mb-1">
         {selected.map((name) => (
           <span

@@ -14,6 +14,7 @@ import {
   Tag,
   Hash,
   MoreVertical,
+  Ban,
 } from "lucide-react";
 import { ConfirmModal } from "@/components/ConfirmModal";
 
@@ -30,6 +31,7 @@ interface Task {
   prUrl?: string;
   labels?: string[];
   parentId?: string;
+  blockedBy?: string[];
   commentCount?: number;
   cardNumber?: number;
   checklist?: {
@@ -46,6 +48,7 @@ interface BoardColumn {
   label: string;
   color: string;
   order: number;
+  wipLimit?: number;
   isDefault: boolean;
 }
 
@@ -96,7 +99,11 @@ export function KanbanBoard({
 
   useEffect(() => {
     if (!cardMenuId) return;
-    const handleClick = () => setCardMenuId(null);
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest("[data-card-menu]")) return;
+      setCardMenuId(null);
+    };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [cardMenuId]);
@@ -205,23 +212,36 @@ export function KanbanBoard({
             onDragLeave={() => setDragOverCol(null)}
             onDrop={(e) => handleDrop(e, col.slug)}
           >
-            <div
-              className="rounded-lg px-3 py-1.5 mb-3 flex items-center justify-between flex-shrink-0"
-              style={{ backgroundColor: col.color + "55" }}
-            >
-              <span className="font-semibold text-sm text-text-primary">
-                {col.label}
-              </span>
-              <span
-                className="text-xs font-bold px-1.5 py-0.5 rounded"
-                style={{
-                  backgroundColor: col.color + "35",
-                  color: col.color,
-                }}
-              >
-                {tasksByStatus(col.slug).length}
-              </span>
-            </div>
+            {(() => {
+              const count = tasksByStatus(col.slug).length;
+              const overWip = col.wipLimit && col.wipLimit > 0 && count > col.wipLimit;
+              return (
+                <div
+                  className={`rounded-lg px-3 py-1.5 mb-3 flex items-center justify-between flex-shrink-0 ${overWip ? "ring-2 ring-warning" : ""}`}
+                  style={{ backgroundColor: col.color + "55" }}
+                >
+                  <span className="font-semibold text-sm text-text-primary">
+                    {col.label}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {overWip && (
+                      <span className="text-xs text-warning font-medium">
+                        WIP
+                      </span>
+                    )}
+                    <span
+                      className={`text-xs font-bold px-1.5 py-0.5 rounded ${overWip ? "bg-warning text-white" : ""}`}
+                      style={overWip ? {} : {
+                        backgroundColor: col.color + "35",
+                        color: col.color,
+                      }}
+                    >
+                      {count}{col.wipLimit && col.wipLimit > 0 ? `/${col.wipLimit}` : ""}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
               {tasksByStatus(col.slug).map((task) => (
@@ -230,7 +250,7 @@ export function KanbanBoard({
                   draggable
                   onDragStart={(e) => handleDragStart(e, task._id)}
                   onDragEnd={() => setDraggingId(null)}
-                  className={`task-card bg-bg-card rounded-lg p-3 transition-all ${draggingId === task._id ? "opacity-40" : ""}`}
+                  className={`task-card bg-bg-card rounded-lg p-3 transition-all ${draggingId === task._id ? "opacity-40" : ""} ${task.blockedBy?.length ? "border-l-2 border-danger" : ""}`}
                 >
                   {task.cardNumber && (
                     <span className="text-xs text-text-disabled font-mono mb-1 block">
@@ -253,7 +273,7 @@ export function KanbanBoard({
                         <Pencil size={12} />
                       </button>
                       {isAdmin && (
-                        <div className="relative">
+                        <div className="relative" data-card-menu>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -349,6 +369,12 @@ export function KanbanBoard({
                     })()}
 
                   <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    {task.blockedBy && task.blockedBy.length > 0 && (
+                      <span className="text-xs px-1.5 py-0.5 rounded font-medium flex items-center gap-1 text-danger bg-danger-subtle">
+                        <Ban size={10} />
+                        Blocked
+                      </span>
+                    )}
                     <span
                       className={`text-xs px-1.5 py-0.5 rounded font-medium flex items-center gap-1 capitalize ${PRIORITY_COLOR[task.priority]}`}
                     >
@@ -384,12 +410,28 @@ export function KanbanBoard({
                         )}
                       </div>
                     )}
-                    {task.deadline && (
-                      <span className="text-xs text-text-secondary flex items-center gap-1">
-                        <Calendar size={10} />
-                        {new Date(task.deadline).toLocaleDateString()}
-                      </span>
-                    )}
+                    {task.deadline && (() => {
+                      const now = new Date();
+                      now.setHours(0, 0, 0, 0);
+                      const due = new Date(task.deadline);
+                      due.setHours(0, 0, 0, 0);
+                      const diffDays = Math.ceil((due.getTime() - now.getTime()) / 86400000);
+                      const colorClass = task.status === "done"
+                        ? "text-text-disabled"
+                        : diffDays < 0
+                          ? "text-danger bg-danger-subtle px-1.5 py-0.5 rounded"
+                          : diffDays === 0
+                            ? "text-warning bg-warning-subtle px-1.5 py-0.5 rounded"
+                            : diffDays <= 2
+                              ? "text-warning"
+                              : "text-text-secondary";
+                      return (
+                        <span className={`text-xs flex items-center gap-1 ${colorClass}`}>
+                          <Calendar size={10} />
+                          {diffDays < 0 ? `${Math.abs(diffDays)}d overdue` : diffDays === 0 ? "Today" : new Date(task.deadline).toLocaleDateString()}
+                        </span>
+                      );
+                    })()}
                     {(task.commentCount ?? 0) > 0 && (
                       <span className="text-xs text-text-secondary flex items-center gap-1">
                         <MessageSquare size={10} />
