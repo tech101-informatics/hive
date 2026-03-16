@@ -5,7 +5,7 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
 
   // Allow Slack commands and cron jobs through without auth
-  if (pathname.startsWith("/api/slack") || pathname.startsWith("/api/cron")) {
+  if (pathname.startsWith("/api/slack") || pathname.startsWith("/api/cron") || pathname.startsWith("/api/github")) {
     return NextResponse.next();
   }
 

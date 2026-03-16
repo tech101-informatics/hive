@@ -28,6 +28,7 @@ import { CreateTaskModal } from "@/components/CreateTaskModal";
 import { AssigneeDropdown } from "@/components/AssigneeDropdown";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { TableView } from "@/components/TableView";
+import { UndoToast } from "@/components/UndoToast";
 
 interface Project {
   _id: string;
@@ -296,6 +297,28 @@ export default function ProjectPage() {
   const [confirmAction, setConfirmAction] = useState<
     "delete" | "archive" | null
   >(null);
+  const [undoToast, setUndoToast] = useState<{ message: string; taskIds: string[] } | null>(null);
+
+  const handleArchive = (taskIds: string[], titles: string[]) => {
+    fetchData();
+    const msg = titles.length === 1
+      ? `"${titles[0]}" archived`
+      : `${titles.length} cards archived`;
+    setUndoToast({ message: msg, taskIds });
+  };
+
+  const undoArchive = async (taskIds: string[]) => {
+    for (const id of taskIds) {
+      await fetch(`/api/tasks/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: false }),
+      });
+    }
+    setUndoToast(null);
+    fetchData();
+  };
+
   const [viewMode, setViewMode] = useState<"kanban" | "table">(() => {
     if (typeof window !== "undefined") {
       return (localStorage.getItem("hive-view-mode") as "kanban" | "table") || "kanban";
@@ -358,7 +381,7 @@ export default function ProjectPage() {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) return;
 
-      if (e.key === "n" && isAdmin && !showModal) {
+      if (e.key === "n" && !showModal) {
         e.preventDefault();
         setShowModal(true);
       }
@@ -369,7 +392,7 @@ export default function ProjectPage() {
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isAdmin, showModal]);
+  }, [showModal]);
 
   const applyFilter = (sf: typeof savedFilters[0]) => {
     setSearch(sf.filters.search || "");
@@ -454,8 +477,16 @@ export default function ProjectPage() {
 
   useEffect(() => {
     const handler = () => fetchData();
+    const archiveHandler = (e: Event) => {
+      const { taskIds, titles } = (e as CustomEvent).detail;
+      handleArchive(taskIds, titles);
+    };
     window.addEventListener("task-updated", handler);
-    return () => window.removeEventListener("task-updated", handler);
+    window.addEventListener("task-archived", archiveHandler);
+    return () => {
+      window.removeEventListener("task-updated", handler);
+      window.removeEventListener("task-archived", archiveHandler);
+    };
   }, []);
 
   useEffect(() => {
@@ -551,14 +582,14 @@ export default function ProjectPage() {
             </button>
           </div>
 
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 bg-brand text-sm text-white px-3 py-2 rounded-lg hover:bg-brand-hover font-medium transition-colors"
+          >
+            <Plus size={16} /> Add Card
+          </button>
         {isAdmin && (
           <>
-            <button
-              onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 bg-brand text-sm text-white px-3 py-2 rounded-lg hover:bg-brand-hover font-medium transition-colors"
-            >
-              <Plus size={16} /> Add Card
-            </button>
             <div className="relative" ref={boardMenuRef}>
               <button
                 onClick={() => setBoardMenuOpen((p) => !p)}
@@ -629,6 +660,29 @@ export default function ProjectPage() {
               onDelete={deleteSavedFilter}
             />
           )}
+
+          {/* My Cards quick filter */}
+          <button
+            type="button"
+            onClick={() => {
+              const myName = session?.user?.name || "";
+              if (filterAssignees.length === 1 && filterAssignees[0] === myName) {
+                setFilterAssignees([]);
+                setActiveFilterId(null);
+              } else {
+                setFilterAssignees([myName]);
+                setActiveFilterId(null);
+              }
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors whitespace-nowrap ${
+              filterAssignees.length === 1 && filterAssignees[0] === session?.user?.name
+                ? "filter-btn-active"
+                : "bg-bg-base text-text-secondary hover:bg-bg-surface"
+            }`}
+          >
+            <User size={13} />
+            My Cards
+          </button>
 
           <div className="relative min-w-[140px] flex-1 max-w-sm">
             <Search
@@ -796,6 +850,7 @@ export default function ProjectPage() {
             tasks={filteredTasks}
             columns={columns}
             onTaskUpdated={fetchData}
+            onArchive={handleArchive}
             isAdmin={isAdmin}
             boardName={project?.name || ""}
             boardStatus={project?.status || ""}
@@ -807,6 +862,8 @@ export default function ProjectPage() {
           tasks={filteredTasks}
           columns={columns}
           members={members}
+          onTaskUpdated={fetchData}
+          onArchive={handleArchive}
         />
       )}
 
@@ -841,6 +898,14 @@ export default function ProjectPage() {
               : handleArchiveBoard
           }
           onCancel={() => setConfirmAction(null)}
+        />
+      )}
+
+      {undoToast && (
+        <UndoToast
+          message={undoToast.message}
+          onUndo={() => undoArchive(undoToast.taskIds)}
+          onDismiss={() => setUndoToast(null)}
         />
       )}
     </div>

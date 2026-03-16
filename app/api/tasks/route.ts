@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { session, error } = await requireAdmin();
+  const { session, error } = await getSessionOrUnauthorized();
   if (error) return error;
   await connectDB();
   const body = await req.json();

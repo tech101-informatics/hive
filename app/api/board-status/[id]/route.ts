@@ -27,6 +27,7 @@ export async function PUT(
   if (body.color !== undefined) status.color = body.color;
   if (body.order !== undefined) status.order = body.order;
   if (body.isDefault !== undefined) status.isDefault = body.isDefault;
+  if (body.wipLimit !== undefined) status.wipLimit = body.wipLimit;
 
   await status.save();
   return NextResponse.json(status);

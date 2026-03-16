@@ -26,10 +26,15 @@ import {
   Ban,
   FileText,
   Search,
+  Paperclip,
+  Download,
+  Image,
+  File,
 } from "lucide-react";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { AssigneeDropdown, MemberAvatar } from "@/components/AssigneeDropdown";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { AttachmentViewer } from "@/components/AttachmentViewer";
 
 interface ChecklistItem {
   _id?: string;
@@ -88,6 +93,7 @@ interface Props {
   onClose: () => void;
   onUpdated: () => void;
   onDeleted?: () => void;
+  onArchive?: (taskIds: string[], titles: string[]) => void;
   readOnly?: boolean;
 }
 
@@ -106,6 +112,7 @@ export function EditTaskModal({
   onClose,
   onUpdated,
   onDeleted,
+  onArchive,
   readOnly = false,
 }: Props) {
   const { data: session } = useSession();
@@ -170,6 +177,22 @@ export function EditTaskModal({
   // Save as template
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
+
+  // Attachments
+  const [attachments, setAttachments] = useState<
+    {
+      _id: string;
+      name: string;
+      url: string;
+      type: string;
+      size: number;
+      uploadedBy: string;
+      createdAt: string;
+    }[]
+  >([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [copied, setCopied] = useState<"number" | "link" | null>(null);
   const [showCopyMenu, setShowCopyMenu] = useState(false);
   const copyMenuRef = useRef<HTMLDivElement>(null);
@@ -263,6 +286,7 @@ export function EditTaskModal({
     fetchComments();
     fetchTimeLogs();
     fetchActivities();
+    fetchAttachments();
   }, []);
 
   useEffect(() => {
@@ -332,6 +356,36 @@ export function EditTaskModal({
     const res = await fetch(`/api/tasks/${task._id}/comments`);
     const data = await res.json();
     setComments(Array.isArray(data) ? data : []);
+  };
+
+  const fetchAttachments = async () => {
+    const res = await fetch(`/api/tasks/${task._id}/attachments`);
+    const data = await res.json();
+    setAttachments(Array.isArray(data) ? data : []);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    await fetch(`/api/tasks/${task._id}/attachments`, {
+      method: "POST",
+      body: formData,
+    });
+    setUploading(false);
+    fetchAttachments();
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const deleteAttachment = async (attachmentId: string) => {
+    await fetch(`/api/tasks/${task._id}/attachments`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attachmentId }),
+    });
+    fetchAttachments();
   };
 
   const fetchTimeLogs = async () => {
@@ -443,7 +497,11 @@ export function EditTaskModal({
       body: JSON.stringify({ archived: true }),
     });
     setConfirmAction(null);
-    onUpdated();
+    if (onArchive) {
+      onArchive([task._id], [task.title]);
+    } else {
+      onUpdated();
+    }
     onClose();
   };
 
@@ -661,7 +719,9 @@ export function EditTaskModal({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-text-secondary">
-                      <th className="px-3 md:px-4 py-1 font-medium hidden sm:table-cell">Parent</th>
+                      <th className="px-3 md:px-4 py-1 font-medium hidden sm:table-cell">
+                        Parent
+                      </th>
                       <th className="px-3 md:px-4 py-1 font-medium">Board</th>
                       <th className="px-3 md:px-4 py-1 font-medium">Status</th>
                     </tr>
@@ -672,7 +732,9 @@ export function EditTaskModal({
                         {parentCard ? (
                           <span className="inline-flex items-center gap-1 bg-bg-surface text-text-primary px-2 py-0.5 rounded text-xs font-medium">
                             <Link2 size={10} />
-                            <span className="truncate max-w-[120px]">{parentCard.title}</span>
+                            <span className="truncate max-w-[120px]">
+                              {parentCard.title}
+                            </span>
                           </span>
                         ) : (
                           <span className="text-text-disabled text-xs">
@@ -771,7 +833,7 @@ export function EditTaskModal({
                   </div>
                   <input
                     type="date"
-                    className="text-sm bg-transparent border-0 outline-none cursor-pointer font-medium text-text-primary"
+                    className="text-sm bg-transparent border-0 outline-none cursor-pointer text-text-primary"
                     value={form.deadline}
                     onChange={(e) => {
                       updateField("deadline", e.target.value);
@@ -887,7 +949,7 @@ export function EditTaskModal({
                   </div>
                   <input
                     type="text"
-                    className="text-sm bg-transparent border-0 outline-none font-medium text-text-primary flex-1 placeholder:text-text-disabled"
+                    className="text-sm bg-transparent border-0 outline-none text-text-primary flex-1 placeholder:text-text-disabled"
                     value={form.branch}
                     onChange={(e) => updateField("branch", e.target.value)}
                     placeholder="e.g. feature/my-branch"
@@ -898,15 +960,29 @@ export function EditTaskModal({
                 <div className="flex items-center py-3 border-t border-border-subtle">
                   <div className="flex items-center gap-2.5 w-28 md:w-40 text-sm text-text-secondary">
                     <GitPullRequest size={15} />
-                    <span>Pull Request</span>
+                    <span>PR</span>
                   </div>
-                  <input
-                    type="text"
-                    className="text-sm bg-transparent border-0 outline-none font-medium text-text-primary flex-1 placeholder:text-text-disabled"
-                    value={form.pr}
-                    onChange={(e) => updateField("pr", e.target.value)}
-                    placeholder="e.g. https://github.com/org/repo/pull/123"
-                  />
+                  <div className="flex-1 flex items-center gap-2 min-w-0">
+                    <input
+                      type="text"
+                      className="text-sm bg-transparent border-0 outline-none text-text-primary flex-1 placeholder:text-text-disabled min-w-0"
+                      value={form.pr}
+                      onChange={(e) => updateField("pr", e.target.value)}
+                      placeholder="https://github.com/..."
+                      readOnly={readOnly}
+                    />
+                    {form.pr && form.pr.startsWith("http") && (
+                      <a
+                        href={form.pr}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-brand hover:text-brand-hover flex-shrink-0"
+                        title="Open PR"
+                      >
+                        <Link size={14} />
+                      </a>
+                    )}
+                  </div>
                 </div>
 
                 {/* Labels */}
@@ -1172,7 +1248,9 @@ export function EditTaskModal({
                     dangerouslySetInnerHTML={{ __html: form.description }}
                   />
                 ) : (
-                  <p className="text-sm text-text-disabled italic">No description</p>
+                  <p className="text-sm text-text-disabled italic">
+                    No description
+                  </p>
                 )
               ) : (
                 <RichTextEditor
@@ -1183,6 +1261,119 @@ export function EditTaskModal({
                   mentionUsers={mentionUsersList}
                 />
               )}
+            </div>
+
+            {/* Attachments */}
+            <div className="mt-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Paperclip size={16} className="text-text-secondary" />
+                <h3 className="text-sm font-semibold text-text-primary">
+                  Attachments
+                </h3>
+                {attachments.length > 0 && (
+                  <span className="text-xs text-text-disabled font-medium">
+                    {attachments.length}
+                  </span>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleFileUpload}
+                accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt,.csv"
+              />
+
+              <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-10 gap-2">
+                {attachments.map((att, attIdx) => {
+                  const isMedia =
+                    att.type === "image" ||
+                    !!att.name.match(
+                      /\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|mov)$/i,
+                    );
+                  const isImage =
+                    att.type === "image" ||
+                    !!att.name.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i);
+
+                  return (
+                    <div
+                      key={att._id}
+                      className="relative group rounded-lg overflow-hidden cursor-pointer bg-bg-base aspect-square"
+                      onClick={() => {
+                        if (isMedia) {
+                          setViewerIndex(attIdx);
+                        } else {
+                          window.open(att.url, "_blank");
+                        }
+                      }}
+                    >
+                      {isImage ? (
+                        <img
+                          src={att.url.replace(
+                            "/upload/",
+                            "/upload/w_200,h_200,c_thumb,q_auto,f_auto/",
+                          )}
+                          alt={att.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 p-2">
+                          <File size={24} className="text-text-disabled" />
+                          <span className="text-xs text-text-disabled text-center truncate w-full px-1">
+                            {att.name.split(".").pop()?.toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-end">
+                        <div className="w-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <p className="text-xs text-white truncate font-medium">
+                            {att.name}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <a
+                          href={att.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-1 bg-black/50 hover:bg-black/70 text-white rounded transition-colors"
+                          title="Download"
+                        >
+                          <Download size={12} />
+                        </a>
+                        {canEdit && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteAttachment(att._id);
+                            }}
+                            className="p-1 bg-black/50 hover:bg-red-600 text-white rounded transition-colors"
+                            title="Remove"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Add tile — always last in the grid */}
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="rounded-lg border-2 border-dashed border-bg-base hover:border-brand/40 aspect-square flex flex-col items-center justify-center gap-1 text-text-disabled hover:text-brand transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    <Plus size={20} />
+                    <span className="text-xs font-medium">
+                      {uploading ? "..." : "Add"}
+                    </span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Checklist */}
@@ -1648,6 +1839,15 @@ export function EditTaskModal({
             </div>
           </div>
         </div>
+      )}
+
+      {viewerIndex !== null && (
+        <AttachmentViewer
+          attachments={attachments}
+          currentIndex={viewerIndex}
+          onClose={() => setViewerIndex(null)}
+          onNavigate={setViewerIndex}
+        />
       )}
 
       {confirmAction && (

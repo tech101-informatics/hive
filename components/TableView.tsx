@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   Flag,
@@ -7,6 +7,10 @@ import {
   ArrowUpDown,
   Ban,
   MessageSquare,
+  Archive,
+  Trash2,
+  ArrowRightLeft,
+  X,
 } from "lucide-react";
 
 interface Task {
@@ -50,15 +54,88 @@ export function TableView({
   tasks,
   columns,
   members,
+  onTaskUpdated,
+  onArchive,
 }: {
   tasks: Task[];
   columns: BoardColumn[];
   members: MemberInfo[];
+  onTaskUpdated?: () => void;
+  onArchive?: (taskIds: string[], titles: string[]) => void;
 }) {
   const router = useRouter();
   const { id: projectId } = useParams();
   const [sortKey, setSortKey] = useState<SortKey>("cardNumber");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [statusMenuId, setStatusMenuId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkStatusMenu, setBulkStatusMenu] = useState(false);
+
+  const toggleSelect = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    if (selected.size === tasks.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(tasks.map((t) => t._id)));
+    }
+  };
+
+  const bulkArchive = async () => {
+    const ids = Array.from(selected);
+    const titles = ids.map((id) => tasks.find((t) => t._id === id)?.title || "Card");
+    for (const id of ids) {
+      await fetch(`/api/tasks/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: true }),
+      });
+    }
+    setSelected(new Set());
+    if (onArchive) {
+      onArchive(ids, titles);
+    } else {
+      onTaskUpdated?.();
+    }
+  };
+
+  const bulkMove = async (status: string) => {
+    for (const id of Array.from(selected)) {
+      await fetch(`/api/tasks/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+    }
+    setSelected(new Set());
+    setBulkStatusMenu(false);
+    onTaskUpdated?.();
+  };
+
+  useEffect(() => {
+    if (!statusMenuId) return;
+    const handleClick = () => setStatusMenuId(null);
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [statusMenuId]);
+
+  const changeStatus = async (taskId: string, newStatus: string) => {
+    setStatusMenuId(null);
+    await fetch(`/api/tasks/${taskId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    onTaskUpdated?.();
+  };
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -191,6 +268,14 @@ export function TableView({
         <table className="w-full text-sm">
           <thead>
             <tr className="text-xs text-text-disabled font-medium uppercase tracking-wider">
+              <th className="px-3 py-2.5 w-8">
+                <input
+                  type="checkbox"
+                  checked={selected.size === tasks.length && tasks.length > 0}
+                  onChange={selectAll}
+                  className="w-3.5 h-3.5 rounded border-border text-brand focus:ring-brand cursor-pointer"
+                />
+              </th>
               <SortHeader label="#" field="cardNumber" />
               <SortHeader label="Title" field="title" />
               <SortHeader label="Status" field="status" />
@@ -231,8 +316,17 @@ export function TableView({
                 <tr
                   key={task._id}
                   onClick={() => router.push(`/projects/${projectId}/cards/${task._id}`)}
-                  className="hover:bg-bg-surface transition-colors cursor-pointer"
+                  className={`hover:bg-bg-surface transition-colors cursor-pointer ${selected.has(task._id) ? "bg-brand-subtle/30" : ""}`}
                 >
+                  <td className="px-3 py-2.5 w-8">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(task._id)}
+                      onClick={(e) => toggleSelect(task._id, e)}
+                      onChange={() => {}}
+                      className="w-3.5 h-3.5 rounded border-border text-brand focus:ring-brand cursor-pointer"
+                    />
+                  </td>
                   <td className="px-3 py-2.5 text-text-disabled font-mono text-xs whitespace-nowrap">
                     {task.cardNumber ? `SP-${task.cardNumber}` : ""}
                   </td>
@@ -253,15 +347,49 @@ export function TableView({
                     </div>
                   </td>
                   <td className="px-3 py-2.5">
-                    <span
-                      className="text-xs px-2 py-0.5 rounded-full font-medium"
-                      style={{
-                        backgroundColor: (statusInfo?.color || "#64748b") + "18",
-                        color: statusInfo?.color || "#64748b",
-                      }}
-                    >
-                      {statusInfo?.label || task.status}
-                    </span>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setStatusMenuId(statusMenuId === task._id ? null : task._id);
+                        }}
+                        className="text-xs px-2 py-0.5 rounded-full font-medium cursor-pointer hover:opacity-80 transition-opacity"
+                        style={{
+                          backgroundColor: (statusInfo?.color || "#64748b") + "18",
+                          color: statusInfo?.color || "#64748b",
+                        }}
+                      >
+                        {statusInfo?.label || task.status}
+                      </button>
+                      {statusMenuId === task._id && (
+                        <div className="absolute top-full left-0 mt-1 bg-bg-card rounded-xl shadow-lg z-[60] w-40 py-1">
+                          {columns.map((col) => (
+                            <button
+                              key={col.slug}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                changeStatus(task._id, col.slug);
+                              }}
+                              className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors text-left ${
+                                task.status === col.slug ? "bg-bg-surface" : "hover:bg-bg-surface"
+                              }`}
+                            >
+                              <span
+                                className="text-xs px-2 py-0.5 rounded-full font-medium"
+                                style={{
+                                  backgroundColor: col.color + "18",
+                                  color: col.color,
+                                }}
+                              >
+                                {col.label}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-2.5">
                     <span
@@ -328,6 +456,55 @@ export function TableView({
           </tbody>
         </table>
       </div>
+
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-4">
+          <div className="bg-bg-surface rounded-xl shadow-xl flex items-center gap-2 px-4 py-2.5">
+            <span className="text-sm text-text-primary font-medium mr-2">
+              {selected.size} selected
+            </span>
+            <div className="relative">
+              <button
+                onClick={() => setBulkStatusMenu((p) => !p)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-card hover:bg-bg-base rounded-lg transition-colors"
+              >
+                <ArrowRightLeft size={12} /> Move
+              </button>
+              {bulkStatusMenu && (
+                <div className="absolute bottom-full left-0 mb-2 bg-bg-card rounded-xl shadow-lg z-10 w-40 py-1">
+                  {columns.map((col) => (
+                    <button
+                      key={col.slug}
+                      onClick={() => bulkMove(col.slug)}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-bg-surface transition-colors text-left"
+                    >
+                      <span
+                        className="text-xs px-2 py-0.5 rounded-full font-medium"
+                        style={{ backgroundColor: col.color + "18", color: col.color }}
+                      >
+                        {col.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={bulkArchive}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-warning bg-warning-subtle hover:bg-warning/20 rounded-lg transition-colors"
+            >
+              <Archive size={12} /> Archive
+            </button>
+            <button
+              onClick={() => setSelected(new Set())}
+              className="p-1.5 text-text-disabled hover:text-text-secondary transition-colors"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

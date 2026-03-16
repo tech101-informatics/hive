@@ -313,7 +313,7 @@ export async function DELETE(
   _: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { session, error } = await requireAdmin();
+  const { session, error } = await getSessionOrUnauthorized();
   if (error) return error;
   const { id } = await params;
   await connectDB();

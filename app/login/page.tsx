@@ -1,6 +1,24 @@
 "use client";
-import { signIn } from "next-auth/react";
+import { useEffect } from "react";
+import { signIn, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+
 export default function LoginPage() {
+  const { status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === "authenticated") router.replace("/");
+  }, [status, router]);
+
+  if (status === "loading" || status === "authenticated") {
+    return (
+      <div className="min-h-screen bg-bg-base flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-brand border-t-transparent" />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-bg-base flex items-center justify-center p-4">
       <div className="bg-bg-surface border border-border rounded-2xl shadow-lg p-8 w-full max-w-sm text-center">

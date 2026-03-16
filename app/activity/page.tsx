@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import {
   Loader2,
   ChevronLeft,
@@ -80,6 +81,8 @@ function groupByDate(items: ActivityItem[]): Record<string, ActivityItem[]> {
 }
 
 export default function ActivityPage() {
+  const { data: session, status: authStatus } = useSession();
+  const isAdmin = session?.user?.role === "admin";
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,6 +109,22 @@ export default function ActivityPage() {
         setLoading(false);
       });
   }, [page, selectedProject]);
+
+  if (authStatus === "loading") {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="animate-spin text-brand" size={32} />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="text-center py-20">
+        <p className="text-text-secondary">You don&apos;t have permission to access this page.</p>
+      </div>
+    );
+  }
 
   const projectMap = new Map(projects.map((p) => [p._id, p]));
   const grouped = groupByDate(activities);

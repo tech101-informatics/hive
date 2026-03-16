@@ -27,6 +27,7 @@ export interface ITask extends Document {
   labels: string[];
   checklist: IChecklistItem[];
   cardNumber: number;
+  position: number;
   blockedBy: mongoose.Types.ObjectId[];
   archived: boolean;
   slackThreadTs: string;
@@ -50,6 +51,7 @@ const TaskSchema = new Schema<ITask>(
     labels: { type: [String], default: [] },
     checklist: { type: [ChecklistItemSchema], default: [] },
     cardNumber: { type: Number, unique: true, sparse: true },
+    position: { type: Number, default: 0 },
     blockedBy: { type: [Schema.Types.ObjectId], ref: "Task", default: [] },
     archived: { type: Boolean, default: false },
     slackThreadTs: { type: String, default: "" },

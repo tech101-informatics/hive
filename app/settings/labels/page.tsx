@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Plus, Trash2, Check, X, Pencil } from "lucide-react";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 interface Label {
   _id: string;
@@ -89,9 +90,12 @@ export default function LabelsSettingsPage() {
     }
   };
 
-  const deleteLabel = async (id: string) => {
-    if (!confirm("Delete this label?")) return;
-    await fetch(`/api/labels/${id}`, { method: "DELETE" });
+  const [deleteLabelTarget, setDeleteLabelTarget] = useState<Label | null>(null);
+
+  const confirmDeleteLabel = async () => {
+    if (!deleteLabelTarget) return;
+    await fetch(`/api/labels/${deleteLabelTarget._id}`, { method: "DELETE" });
+    setDeleteLabelTarget(null);
     fetchLabels();
     showToast("Label deleted");
   };
@@ -293,7 +297,7 @@ export default function LabelsSettingsPage() {
                     <Pencil size={14} />
                   </button>
                   <button
-                    onClick={() => deleteLabel(label._id)}
+                    onClick={() => setDeleteLabelTarget(label)}
                     className="p-1.5 text-text-disabled hover:text-danger transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
                     title="Delete"
                   >
@@ -307,6 +311,17 @@ export default function LabelsSettingsPage() {
       )}
 
       {/* Toast */}
+      {deleteLabelTarget && (
+        <ConfirmModal
+          title="Delete Label"
+          message={`"${deleteLabelTarget.name}" will be permanently deleted. Cards using this label will not be affected.`}
+          confirmText="Delete"
+          variant="danger"
+          onConfirm={confirmDeleteLabel}
+          onCancel={() => setDeleteLabelTarget(null)}
+        />
+      )}
+
       {toast && (
         <div className="fixed bottom-6 right-6 bg-bg-card text-text-primary px-4 py-2.5 rounded-xl shadow-lg text-sm flex items-center gap-2 z-50">
           <Check size={14} className="text-success" />

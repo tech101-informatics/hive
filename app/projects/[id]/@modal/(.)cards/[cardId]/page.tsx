@@ -52,6 +52,9 @@ export default function CardModalPage() {
       onUpdated={() => {
         window.dispatchEvent(new CustomEvent("task-updated"));
       }}
+      onArchive={(taskIds, titles) => {
+        window.dispatchEvent(new CustomEvent("task-archived", { detail: { taskIds, titles } }));
+      }}
     />
   );
 }

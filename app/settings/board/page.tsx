@@ -12,6 +12,9 @@ import {
   AlertTriangle,
   Pipette,
 } from "lucide-react";
+import { ConfirmModal } from "@/components/ConfirmModal";
+
+const PROTECTED_SLUGS = ["todo", "in-progress", "in-review", "done"];
 
 interface BoardColumn {
   _id: string;
@@ -136,39 +139,44 @@ export default function BoardSettingsPage() {
     showToast("Default updated");
   };
 
-  const initiateDelete = async (col: BoardColumn) => {
-    const res = await fetch(`/api/board-status/${col._id}`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
-      fetchColumns();
-      showToast("Column deleted");
+  const initiateDelete = (col: BoardColumn) => {
+    if (PROTECTED_SLUGS.includes(col.slug)) {
+      showToast("Cannot delete default status");
       return;
     }
-    const data = await res.json();
-    if (data.taskCount) {
-      setDeleteTarget(col);
-      setDeleteTaskCount(data.taskCount);
-      const other = columns.find((c) => c._id !== col._id);
-      setMigrateToId(other?._id || "");
-    } else {
-      showToast(data.error || "Cannot delete");
-    }
+    setDeleteTarget(col);
+    setDeleteTaskCount(0);
+    const other = columns.find((c) => c._id !== col._id);
+    setMigrateToId(other?._id || "");
   };
 
   const confirmDelete = async () => {
-    if (!deleteTarget || !migrateToId) return;
-    await fetch(`/api/board-status/${deleteTarget._id}/migrate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetStatusId: migrateToId }),
-    });
-    await fetch(`/api/board-status/${deleteTarget._id}`, {
+    if (!deleteTarget) return;
+    // If tasks exist, migrate them first
+    if (deleteTaskCount > 0 && migrateToId) {
+      await fetch(`/api/board-status/${deleteTarget._id}/migrate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetStatusId: migrateToId }),
+      });
+    }
+    const res = await fetch(`/api/board-status/${deleteTarget._id}`, {
       method: "DELETE",
     });
-    setDeleteTarget(null);
-    fetchColumns();
-    showToast("Column deleted");
+    if (res.ok) {
+      setDeleteTarget(null);
+      fetchColumns();
+      showToast("Column deleted");
+    } else {
+      const data = await res.json();
+      if (data.taskCount) {
+        // Tasks exist — show migration UI
+        setDeleteTaskCount(data.taskCount);
+      } else {
+        showToast(data.error || "Cannot delete");
+        setDeleteTarget(null);
+      }
+    }
   };
 
   const addColumn = async () => {
@@ -234,10 +242,10 @@ export default function BoardSettingsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
           <h1 className="text-lg md:text-xl font-semibold text-text-primary tracking-tight">
-            Board Columns
+            Statuses
           </h1>
           <p className="text-text-secondary text-sm mt-1 hidden sm:block">
-            Configure the columns on your Kanban board
+            Configure the statuses on your Kanban board
           </p>
         </div>
         <button
@@ -319,7 +327,9 @@ export default function BoardSettingsPage() {
                 onChange={(e) => {
                   const val = parseInt(e.target.value) || 0;
                   setColumns((prev) =>
-                    prev.map((c) => (c._id === col._id ? { ...c, wipLimit: val } : c))
+                    prev.map((c) =>
+                      c._id === col._id ? { ...c, wipLimit: val } : c,
+                    ),
                   );
                 }}
                 onBlur={(e) => {
@@ -357,13 +367,15 @@ export default function BoardSettingsPage() {
                 <Pencil size={14} />
               </button>
 
-              <button
-                onClick={() => initiateDelete(col)}
-                className="p-1.5 text-text-disabled hover:text-danger transition-colors flex-shrink-0"
-                title="Delete"
-              >
-                <Trash2 size={14} />
-              </button>
+              {!PROTECTED_SLUGS.includes(col.slug) && (
+                <button
+                  onClick={() => initiateDelete(col)}
+                  className="p-1.5 text-text-disabled hover:text-danger transition-colors flex-shrink-0"
+                  title="Delete"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -524,8 +536,20 @@ export default function BoardSettingsPage() {
         </div>
       )}
 
-      {/* Delete confirmation dialog */}
-      {deleteTarget && (
+      {/* Delete confirmation — simple confirm when no tasks */}
+      {deleteTarget && deleteTaskCount === 0 && (
+        <ConfirmModal
+          title="Delete Status"
+          message={`"${deleteTarget.label}" will be permanently deleted. This cannot be undone.`}
+          confirmText="Delete"
+          variant="danger"
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {/* Delete confirmation — migration dialog when tasks exist */}
+      {deleteTarget && deleteTaskCount > 0 && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-bg-surface rounded-2xl shadow-xl p-6 w-full max-w-sm">
             <div className="flex items-center gap-3 mb-4">
@@ -534,7 +558,7 @@ export default function BoardSettingsPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-text-primary">
-                  Delete Column
+                  Delete Status
                 </h3>
                 <p className="text-sm text-text-secondary">
                   &ldquo;{deleteTarget.label}&rdquo; has{" "}

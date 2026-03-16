@@ -3,6 +3,8 @@ import "./globals.css";
 import { Navbar } from "@/components/Navbar";
 import { SessionProvider } from "@/components/SessionProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { GlobalSearch } from "@/components/GlobalSearch";
+import { OnboardingWizard } from "@/components/OnboardingWizard";
 
 export const metadata: Metadata = {
   title: "Hive",
@@ -39,6 +41,8 @@ export default function RootLayout({
         <SessionProvider>
           <ThemeProvider>
             <Navbar />
+            <GlobalSearch />
+            <OnboardingWizard />
             <main className="max-w-7xl mx-auto px-4 py-4">{children}</main>
           </ThemeProvider>
         </SessionProvider>

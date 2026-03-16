@@ -4,10 +4,10 @@ export const maxDuration = 30;
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { Activity } from "@/models/Activity";
-import { getSessionOrUnauthorized } from "@/lib/auth-helpers";
+import { requireAdmin } from "@/lib/auth-helpers";
 
 export async function GET(req: NextRequest) {
-  const { error } = await getSessionOrUnauthorized();
+  const { error } = await requireAdmin();
   if (error) return error;
   await connectDB();
 

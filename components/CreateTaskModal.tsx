@@ -17,6 +17,8 @@ import {
   GitBranch,
   GitPullRequest,
   Ban,
+  Paperclip,
+  File,
 } from "lucide-react";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { AssigneeDropdown } from "@/components/AssigneeDropdown";
@@ -89,6 +91,10 @@ export function CreateTaskModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
+
+  // Attachments — queued for upload after task creation
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const createFileInputRef = useRef<HTMLInputElement>(null);
 
   const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
@@ -235,7 +241,7 @@ export function CreateTaskModal({
       return;
     }
     setSaving(true);
-    await fetch("/api/tasks", {
+    const res = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -250,6 +256,20 @@ export function CreateTaskModal({
         blockedBy: form.blockedBy.length > 0 ? form.blockedBy : undefined,
       }),
     });
+
+    // Upload queued files after task is created
+    if (pendingFiles.length > 0 && res.ok) {
+      const task = await res.json();
+      for (const file of pendingFiles) {
+        const fd = new FormData();
+        fd.append("file", file);
+        await fetch(`/api/tasks/${task._id}/attachments`, {
+          method: "POST",
+          body: fd,
+        });
+      }
+    }
+
     setSaving(false);
     onCreated();
   };
@@ -496,7 +516,7 @@ export function CreateTaskModal({
                 </div>
                 <input
                   type="date"
-                  className="text-sm bg-transparent border-0 outline-none cursor-pointer font-medium text-text-primary"
+                  className="text-sm bg-transparent border-0 outline-none cursor-pointer text-text-primary"
                   value={form.deadline}
                   onChange={(e) =>
                     setForm({ ...form, deadline: e.target.value })
@@ -881,6 +901,94 @@ export function CreateTaskModal({
               placeholder="Add a description..."
               mentionUsers={mentionUsersList}
             />
+          </div>
+
+          {/* Attachments */}
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Paperclip size={16} className="text-text-secondary" />
+                <h3 className="text-sm font-semibold text-text-primary">
+                  Attachments
+                </h3>
+                {pendingFiles.length > 0 && (
+                  <span className="text-xs text-text-disabled font-medium">
+                    {pendingFiles.length}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => createFileInputRef.current?.click()}
+                className="text-xs text-brand hover:text-brand-hover font-medium flex items-center gap-1"
+              >
+                <Plus size={12} /> Add file
+              </button>
+              <input
+                ref={createFileInputRef}
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (file.size > 10 * 1024 * 1024) {
+                      setError("File too large (max 10MB)");
+                      return;
+                    }
+                    setPendingFiles((prev) => [...prev, file]);
+                  }
+                  if (createFileInputRef.current)
+                    createFileInputRef.current.value = "";
+                }}
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip,.txt,.csv"
+              />
+            </div>
+            {pendingFiles.length > 0 && (
+              <div className="grid grid-cols-3 sm:grid-cols-9 gap-2">
+                {pendingFiles.map((file, idx) => {
+                  const isImage = file.type.startsWith("image/");
+                  return (
+                    <div
+                      key={idx}
+                      className="relative group rounded-lg overflow-hidden bg-bg-base aspect-square p-2"
+                    >
+                      {isImage ? (
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={file.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 p-2">
+                          <File size={24} className="text-text-disabled" />
+                          <span className="text-xs text-text-disabled text-center truncate w-full px-1">
+                            {file.name.split(".").pop()?.toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-end">
+                        <div className="w-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <p className="text-xs text-white truncate font-medium">
+                            {file.name}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPendingFiles((prev) =>
+                            prev.filter((_, i) => i !== idx),
+                          )
+                        }
+                        className="absolute top-1 right-1 p-1 bg-black/50 hover:bg-red-600 text-white rounded transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Checklist */}

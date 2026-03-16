@@ -211,7 +211,7 @@ export function RichTextEditor({
       attributes: {
         class:
           mode === "field"
-            ? "outline-none text-sm text-text-primary min-h-[80px] max-h-[200px] overflow-y-auto px-3 pt-3 pb-1 prose prose-sm prose-invert max-w-none"
+            ? "outline-none text-sm text-text-primary min-h-[200px] overflow-y-auto px-3 pt-3 pb-1 prose prose-sm prose-invert max-w-none"
             : "outline-none text-sm text-text-primary min-h-[40px] max-h-[120px] overflow-y-auto px-3 pt-3 pb-1 prose prose-sm prose-invert max-w-none",
       },
       ...(mode === "submit"

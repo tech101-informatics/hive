@@ -18,13 +18,13 @@ import {
   X,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
+import { SearchTrigger } from "@/components/GlobalSearch";
 
 const links = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Boards", icon: FolderKanban },
   { href: "/members", label: "Team", icon: Users },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/activity", label: "Activity", icon: Activity },
 ];
 
 export function Navbar() {
@@ -66,6 +66,7 @@ export function Navbar() {
     ...links,
     ...(isAdmin
       ? [
+          { href: "/activity", label: "Activity", icon: Activity },
           { href: "/analytics", label: "Analytics", icon: BarChart3 },
           { href: "/settings/board", label: "Settings", icon: Settings },
         ]
@@ -111,6 +112,9 @@ export function Navbar() {
             </div>
 
             <div className="flex items-center gap-1.5">
+              <div className="hidden md:block">
+                <SearchTrigger />
+              </div>
               <button
                 onClick={toggleTheme}
                 className="p-2 text-text-secondary hover:bg-bg-card rounded-lg transition-colors"

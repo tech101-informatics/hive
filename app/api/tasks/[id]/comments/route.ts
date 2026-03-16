@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { Comment } from "@/models/Comment";
 import { Task } from "@/models/Task";
-import { logActivity } from "@/lib/activity";
 import { getSessionOrUnauthorized } from "@/lib/auth-helpers";
 
 async function resolveTaskId(id: string): Promise<string | null> {
@@ -44,19 +43,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     authorEmail: session!.user.email || "",
     content: content.trim(),
   });
-
-  // Activity log (Slack notification for comments disabled)
-  const task = await Task.findById(taskId);
-  if (task) {
-    await logActivity({
-      taskId: String(taskId),
-      projectId: String(task.projectId),
-      user: session!.user.name || "Unknown",
-      userEmail: session!.user.email || "",
-      action: "comment_added",
-      details: `Commented on "${task.title}"`,
-    });
-  }
 
   return NextResponse.json(comment, { status: 201 });
 }

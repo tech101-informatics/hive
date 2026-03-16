@@ -32,6 +32,7 @@ interface Task {
   labels?: string[];
   parentId?: string;
   blockedBy?: string[];
+  position?: number;
   commentCount?: number;
   cardNumber?: number;
   checklist?: {
@@ -68,6 +69,7 @@ interface KanbanBoardProps {
   tasks: Task[];
   columns: BoardColumn[];
   onTaskUpdated: () => void;
+  onArchive?: (taskIds: string[], titles: string[]) => void;
   isAdmin?: boolean;
   boardName?: string;
   boardStatus?: string;
@@ -78,6 +80,7 @@ export function KanbanBoard({
   tasks,
   columns,
   onTaskUpdated,
+  onArchive,
   isAdmin = false,
   boardName = "",
   boardStatus = "",
@@ -124,13 +127,15 @@ export function KanbanBoard({
   }, [tasks]);
 
   const displayedTasks = tasks.map((t) =>
-    optimisticStatuses[t._id]
-      ? { ...t, status: optimisticStatuses[t._id] }
-      : t
+    optimisticStatuses[t._id] ? { ...t, status: optimisticStatuses[t._id] } : t,
   );
 
+  const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null);
+
   const tasksByStatus = (status: string) =>
-    displayedTasks.filter((t) => t.status === status);
+    displayedTasks
+      .filter((t) => t.status === status)
+      .sort((a, b) => ((a as any).position ?? 0) - ((b as any).position ?? 0));
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     setDraggingId(taskId);
@@ -140,13 +145,20 @@ export function KanbanBoard({
   const handleDrop = async (e: React.DragEvent, newStatus: string) => {
     e.preventDefault();
     setDragOverCol(null);
+    setDragOverTaskId(null);
     if (!draggingId) return;
     const task = tasks.find((t) => t._id === draggingId);
-    if (!task || task.status === newStatus) return;
+    if (!task) return;
     const taskId = draggingId;
-
-    setOptimisticStatuses((prev) => ({ ...prev, [taskId]: newStatus }));
     setDraggingId(null);
+
+    if (task.status === newStatus) {
+      // Within-column reorder — use dragOverTaskId for position
+      return;
+    }
+
+    // Cross-column move
+    setOptimisticStatuses((prev) => ({ ...prev, [taskId]: newStatus }));
 
     fetch(`/api/tasks/${taskId}`, {
       method: "PUT",
@@ -160,6 +172,56 @@ export function KanbanBoard({
           return next;
         });
       }
+    });
+
+    onTaskUpdated();
+  };
+
+  const handleCardDrop = async (e: React.DragEvent, targetTaskId: string, targetStatus: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverTaskId(null);
+    setDragOverCol(null);
+    if (!draggingId || draggingId === targetTaskId) {
+      setDraggingId(null);
+      return;
+    }
+
+    const colTasks = tasksByStatus(targetStatus);
+    const draggedIdx = colTasks.findIndex((t) => t._id === draggingId);
+    const targetIdx = colTasks.findIndex((t) => t._id === targetTaskId);
+    const task = tasks.find((t) => t._id === draggingId);
+
+    if (!task) { setDraggingId(null); return; }
+
+    // Build new order
+    const isSameColumn = task.status === targetStatus;
+    let reordered: typeof colTasks;
+
+    if (isSameColumn) {
+      reordered = [...colTasks];
+      const [moved] = reordered.splice(draggedIdx, 1);
+      reordered.splice(targetIdx, 0, moved);
+    } else {
+      // Moving from another column into a position
+      setOptimisticStatuses((prev) => ({ ...prev, [draggingId]: targetStatus }));
+      reordered = [...colTasks];
+      reordered.splice(targetIdx, 0, { ...task, status: targetStatus } as any);
+    }
+
+    setDraggingId(null);
+
+    // Save positions
+    const updates = reordered.map((t, i) => ({
+      id: t._id,
+      position: i,
+      ...(t._id === draggingId && !isSameColumn ? { status: targetStatus } : {}),
+    }));
+
+    fetch("/api/tasks/reorder", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tasks: updates }),
     });
 
     onTaskUpdated();
@@ -189,12 +251,17 @@ export function KanbanBoard({
   };
 
   const archiveTask = async (id: string) => {
+    const task = tasks.find((t) => t._id === id);
     await fetch(`/api/tasks/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ archived: true }),
     });
-    onTaskUpdated();
+    if (onArchive) {
+      onArchive([id], [task?.title || "Card"]);
+    } else {
+      onTaskUpdated();
+    }
   };
 
   return (
@@ -214,7 +281,8 @@ export function KanbanBoard({
           >
             {(() => {
               const count = tasksByStatus(col.slug).length;
-              const overWip = col.wipLimit && col.wipLimit > 0 && count > col.wipLimit;
+              const overWip =
+                col.wipLimit && col.wipLimit > 0 && count > col.wipLimit;
               return (
                 <div
                   className={`rounded-lg px-3 py-1.5 mb-3 flex items-center justify-between flex-shrink-0 ${overWip ? "ring-2 ring-warning" : ""}`}
@@ -231,12 +299,19 @@ export function KanbanBoard({
                     )}
                     <span
                       className={`text-xs font-bold px-1.5 py-0.5 rounded ${overWip ? "bg-warning text-white" : ""}`}
-                      style={overWip ? {} : {
-                        backgroundColor: col.color + "35",
-                        color: col.color,
-                      }}
+                      style={
+                        overWip
+                          ? {}
+                          : {
+                              backgroundColor: col.color + "35",
+                              color: col.color,
+                            }
+                      }
                     >
-                      {count}{col.wipLimit && col.wipLimit > 0 ? `/${col.wipLimit}` : ""}
+                      {count}
+                      {col.wipLimit && col.wipLimit > 0
+                        ? `/${col.wipLimit}`
+                        : ""}
                     </span>
                   </div>
                 </div>
@@ -249,11 +324,13 @@ export function KanbanBoard({
                   key={task._id}
                   draggable
                   onDragStart={(e) => handleDragStart(e, task._id)}
-                  onDragEnd={() => setDraggingId(null)}
-                  className={`task-card bg-bg-card rounded-lg p-3 transition-all ${draggingId === task._id ? "opacity-40" : ""} ${task.blockedBy?.length ? "border-l-2 border-danger" : ""}`}
+                  onDragEnd={() => { setDraggingId(null); setDragOverTaskId(null); }}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverTaskId(task._id); }}
+                  onDrop={(e) => handleCardDrop(e, task._id, col.slug)}
+                  className={`task-card bg-bg-card rounded-lg p-3 transition-all ${draggingId === task._id ? "opacity-40" : ""} ${task.blockedBy?.length ? "border-l-2 border-danger" : ""} ${dragOverTaskId === task._id && draggingId && draggingId !== task._id ? "ring-2 ring-brand" : ""}`}
                 >
                   {task.cardNumber && (
-                    <span className="text-xs text-text-disabled font-mono mb-1 block">
+                    <span className="text-xs text-gray-500 font-mono mb-1 block">
                       {formatCardNumber(task.cardNumber)}
                     </span>
                   )}
@@ -267,18 +344,17 @@ export function KanbanBoard({
                     <div className="flex items-center gap-0.5 flex-shrink-0">
                       <button
                         onClick={() => openCard(task)}
-                        className="p-1 text-text-disabled hover:text-brand transition-colors"
+                        className="p-1 text-gray-500 hover:text-brand transition-colors"
                         title="Edit card"
                       >
                         <Pencil size={12} />
                       </button>
-                      {isAdmin && (
                         <div className="relative" data-card-menu>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setCardMenuId(
-                                cardMenuId === task._id ? null : task._id
+                                cardMenuId === task._id ? null : task._id,
                               );
                             }}
                             className="p-1 text-text-disabled hover:text-text-primary transition-colors"
@@ -287,20 +363,22 @@ export function KanbanBoard({
                           </button>
                           {cardMenuId === task._id && (
                             <div className="absolute right-0 top-full mt-1 bg-bg-card rounded-xl shadow-lg z-[60] w-36 py-1 overflow-hidden">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setCardMenuId(null);
-                                  setConfirmAction({
-                                    type: "archive",
-                                    taskId: task._id,
-                                    taskTitle: task.title,
-                                  });
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-surface transition-colors"
-                              >
-                                <Archive size={13} /> Archive
-                              </button>
+                              {isAdmin && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCardMenuId(null);
+                                    setConfirmAction({
+                                      type: "archive",
+                                      taskId: task._id,
+                                      taskTitle: task.title,
+                                    });
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-text-primary hover:bg-bg-surface transition-colors"
+                                >
+                                  <Archive size={13} /> Archive
+                                </button>
+                              )}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -318,7 +396,6 @@ export function KanbanBoard({
                             </div>
                           )}
                         </div>
-                      )}
                     </div>
                   </div>
 
@@ -346,7 +423,7 @@ export function KanbanBoard({
                     task.checklist.length > 0 &&
                     (() => {
                       const done = task.checklist.filter(
-                        (i) => i.completed
+                        (i) => i.completed,
                       ).length;
                       const total = task.checklist.length;
                       return (
@@ -410,28 +487,38 @@ export function KanbanBoard({
                         )}
                       </div>
                     )}
-                    {task.deadline && (() => {
-                      const now = new Date();
-                      now.setHours(0, 0, 0, 0);
-                      const due = new Date(task.deadline);
-                      due.setHours(0, 0, 0, 0);
-                      const diffDays = Math.ceil((due.getTime() - now.getTime()) / 86400000);
-                      const colorClass = task.status === "done"
-                        ? "text-text-disabled"
-                        : diffDays < 0
-                          ? "text-danger bg-danger-subtle px-1.5 py-0.5 rounded"
-                          : diffDays === 0
-                            ? "text-warning bg-warning-subtle px-1.5 py-0.5 rounded"
-                            : diffDays <= 2
-                              ? "text-warning"
-                              : "text-text-secondary";
-                      return (
-                        <span className={`text-xs flex items-center gap-1 ${colorClass}`}>
-                          <Calendar size={10} />
-                          {diffDays < 0 ? `${Math.abs(diffDays)}d overdue` : diffDays === 0 ? "Today" : new Date(task.deadline).toLocaleDateString()}
-                        </span>
-                      );
-                    })()}
+                    {task.deadline &&
+                      (() => {
+                        const now = new Date();
+                        now.setHours(0, 0, 0, 0);
+                        const due = new Date(task.deadline);
+                        due.setHours(0, 0, 0, 0);
+                        const diffDays = Math.ceil(
+                          (due.getTime() - now.getTime()) / 86400000,
+                        );
+                        const colorClass =
+                          task.status === "done"
+                            ? "text-text-disabled"
+                            : diffDays < 0
+                              ? "text-danger bg-danger-subtle px-1.5 py-0.5 rounded"
+                              : diffDays === 0
+                                ? "text-warning bg-warning-subtle px-1.5 py-0.5 rounded"
+                                : diffDays <= 2
+                                  ? "text-warning"
+                                  : "text-text-secondary";
+                        return (
+                          <span
+                            className={`text-xs flex items-center gap-1 ${colorClass}`}
+                          >
+                            <Calendar size={10} />
+                            {diffDays < 0
+                              ? `${Math.abs(diffDays)}d overdue`
+                              : diffDays === 0
+                                ? "Today"
+                                : new Date(task.deadline).toLocaleDateString()}
+                          </span>
+                        );
+                      })()}
                     {(task.commentCount ?? 0) > 0 && (
                       <span className="text-xs text-text-secondary flex items-center gap-1">
                         <MessageSquare size={10} />
@@ -471,18 +558,14 @@ export function KanbanBoard({
       {confirmAction && (
         <ConfirmModal
           title={
-            confirmAction.type === "delete"
-              ? "Delete Card"
-              : "Archive Card"
+            confirmAction.type === "delete" ? "Delete Card" : "Archive Card"
           }
           message={
             confirmAction.type === "delete"
               ? `"${confirmAction.taskTitle}" will be permanently deleted. This action cannot be undone.`
               : `"${confirmAction.taskTitle}" will be archived and hidden from the board. You can restore it later.`
           }
-          confirmText={
-            confirmAction.type === "delete" ? "Delete" : "Archive"
-          }
+          confirmText={confirmAction.type === "delete" ? "Delete" : "Archive"}
           variant={confirmAction.type === "delete" ? "danger" : "warning"}
           onConfirm={() => {
             if (confirmAction.type === "delete") {
