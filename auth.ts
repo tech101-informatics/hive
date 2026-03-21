@@ -1,7 +1,10 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 
-const ALLOWED_DOMAIN = process.env.ALLOWED_DOMAIN || "";
+const ALLOWED_DOMAINS = (process.env.ALLOWED_DOMAIN || "")
+  .split(",")
+  .map((d) => d.trim().toLowerCase())
+  .filter(Boolean);
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "")
   .split(",")
   .map((e) => e.trim().toLowerCase())
@@ -30,9 +33,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return true;
     },
     async signIn({ user }) {
-      if (!ALLOWED_DOMAIN) return true;
+      if (!ALLOWED_DOMAINS.length) return true;
       const email = user.email?.toLowerCase() || "";
-      return email.endsWith(`@${ALLOWED_DOMAIN}`);
+      return ALLOWED_DOMAINS.some((d) => email.endsWith(`@${d}`));
     },
     async jwt({ token, user }) {
       if (user) {

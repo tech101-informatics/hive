@@ -9,6 +9,7 @@ export interface IActivity extends Document {
   details?: string;
   meta?: Record<string, unknown>;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 const ActivitySchema = new Schema<IActivity>(

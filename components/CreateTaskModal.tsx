@@ -59,6 +59,13 @@ const PRIORITY_OPTIONS = [
   { value: "high", label: "High", cls: "bg-red-100 text-red-700" },
 ];
 
+const PROGRESS_STATUS_OPTIONS = [
+  { value: "", label: "None", cls: "bg-gray-100 text-gray-600" },
+  { value: "fe", label: "FE", cls: "bg-violet-100 text-violet-700" },
+  { value: "be", label: "BE", cls: "bg-sky-100 text-sky-700" },
+  { value: "qa", label: "QA", cls: "bg-amber-100 text-amber-700" },
+];
+
 export function CreateTaskModal({
   projectId,
   projectName,
@@ -74,6 +81,7 @@ export function CreateTaskModal({
     title: "",
     description: "",
     priority: "medium",
+    progressStatus: "",
     assignees: [] as string[],
     labels: [] as string[],
     deadline: "",
@@ -97,6 +105,7 @@ export function CreateTaskModal({
   const createFileInputRef = useRef<HTMLInputElement>(null);
 
   const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
+  const [showProgressDropdown, setShowProgressDropdown] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showLabelDropdown, setShowLabelDropdown] = useState(false);
   const [showFields, setShowFields] = useState(true);
@@ -131,6 +140,7 @@ export function CreateTaskModal({
   const blockedByRef = useRef<HTMLDivElement>(null);
 
   const priorityDropdownRef = useRef<HTMLDivElement>(null);
+  const progressDropdownRef = useRef<HTMLDivElement>(null);
   const statusDropdownRef = useRef<HTMLDivElement>(null);
   const labelDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -164,6 +174,12 @@ export function CreateTaskModal({
         !priorityDropdownRef.current.contains(e.target as Node)
       )
         setShowPriorityDropdown(false);
+      if (
+        showProgressDropdown &&
+        progressDropdownRef.current &&
+        !progressDropdownRef.current.contains(e.target as Node)
+      )
+        setShowProgressDropdown(false);
       if (
         showStatusDropdown &&
         statusDropdownRef.current &&
@@ -205,6 +221,7 @@ export function CreateTaskModal({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [
     showPriorityDropdown,
+    showProgressDropdown,
     showStatusDropdown,
     showLabelDropdown,
     showTemplateDropdown,
@@ -279,6 +296,7 @@ export function CreateTaskModal({
     ? { value: statusCol.slug, label: statusCol.label, color: statusCol.color }
     : { value: form.status, label: form.status, color: "#64748b" };
   const priorityOpt = PRIORITY_OPTIONS.find((p) => p.value === form.priority)!;
+  const progressOpt = PROGRESS_STATUS_OPTIONS.find((p) => p.value === form.progressStatus) || PROGRESS_STATUS_OPTIONS[0];
   const mentionUsersList = members.map((m) => ({ id: m._id, label: m.name }));
 
   return (
@@ -477,6 +495,49 @@ export function CreateTaskModal({
                           }}
                           className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors text-left ${
                             form.priority === p.value
+                              ? "bg-bg-surface"
+                              : "hover:bg-bg-surface"
+                          }`}
+                        >
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.cls}`}
+                          >
+                            {p.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Progress Status */}
+              <div className="flex items-center py-3 border-t border-bg-base">
+                <div className="flex items-center gap-2.5 w-28 md:w-40 text-sm text-text-secondary">
+                  <Layers size={15} />
+                  <span>Progress</span>
+                </div>
+                <div className="relative" ref={progressDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowProgressDropdown((p) => !p)}
+                    className={`text-xs px-2.5 py-1 rounded-full font-medium cursor-pointer transition-opacity hover:opacity-80 ${progressOpt.cls}`}
+                  >
+                    {progressOpt.label}
+                    <ChevronDown size={10} className="inline ml-1" />
+                  </button>
+                  {showProgressDropdown && (
+                    <div className="absolute top-full left-0 mt-1 bg-bg-card rounded-xl shadow-lg z-[60] w-40 py-1">
+                      {PROGRESS_STATUS_OPTIONS.map((p) => (
+                        <button
+                          key={p.value}
+                          type="button"
+                          onClick={() => {
+                            setForm((prev) => ({ ...prev, progressStatus: p.value }));
+                            setShowProgressDropdown(false);
+                          }}
+                          className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors text-left ${
+                            form.progressStatus === p.value
                               ? "bg-bg-surface"
                               : "hover:bg-bg-surface"
                           }`}

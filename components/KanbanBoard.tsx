@@ -24,6 +24,7 @@ interface Task {
   description: string;
   status: string;
   priority: "low" | "medium" | "high";
+  progressStatus?: "" | "fe" | "be" | "qa";
   assignees: string[];
   deadline?: string;
   branch?: string;
@@ -57,6 +58,12 @@ const PRIORITY_COLOR: Record<string, string> = {
   high: "text-danger bg-danger-subtle",
   medium: "text-warning bg-warning-subtle",
   low: "text-success bg-success-subtle",
+};
+
+const PROGRESS_STATUS_MAP: Record<string, { label: string; cls: string }> = {
+  fe: { label: "FE", cls: "text-violet-700 bg-violet-100 dark:text-violet-300 dark:bg-violet-900/40" },
+  be: { label: "BE", cls: "text-sky-700 bg-sky-100 dark:text-sky-300 dark:bg-sky-900/40" },
+  qa: { label: "QA", cls: "text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-900/40" },
 };
 
 interface MemberInfo {
@@ -458,6 +465,13 @@ export function KanbanBoard({
                       <Flag size={10} />
                       {task.priority}
                     </span>
+                    {task.progressStatus && PROGRESS_STATUS_MAP[task.progressStatus] && (
+                      <span
+                        className={`text-xs px-1.5 py-0.5 rounded font-bold ${PROGRESS_STATUS_MAP[task.progressStatus].cls}`}
+                      >
+                        {PROGRESS_STATUS_MAP[task.progressStatus].label}
+                      </span>
+                    )}
                     {task.assignees?.length > 0 && (
                       <div className="flex items-center -space-x-1.5">
                         {task.assignees.slice(0, 3).map((name) => {

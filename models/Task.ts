@@ -17,6 +17,7 @@ export interface ITask extends Document {
   description: string;
   status: string;
   priority: "low" | "medium" | "high";
+  progressStatus: "" | "fe" | "be" | "qa";
   projectId: mongoose.Types.ObjectId;
   parentId?: mongoose.Types.ObjectId;
   assignees: string[];
@@ -41,6 +42,7 @@ const TaskSchema = new Schema<ITask>(
     description: { type: String, default: "" },
     status: { type: String, default: "todo" },
     priority: { type: String, enum: ["low", "medium", "high"], default: "medium" },
+    progressStatus: { type: String, enum: ["", "fe", "be", "qa"], default: "" },
     projectId: { type: Schema.Types.ObjectId, ref: "Project" },
     parentId: { type: Schema.Types.ObjectId, ref: "Task", default: null },
     assignees: { type: [String], default: [] },
