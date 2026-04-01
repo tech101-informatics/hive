@@ -99,61 +99,49 @@ export async function GET(req: NextRequest) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Board statuses for identifying "in-progress" columns (not first, not "done")
+  // Board statuses (column definitions)
   const boardStatuses = await BoardStatus.find().sort({ order: 1 }).lean();
-  const firstSlug = boardStatuses[0]?.slug;
-  const inProgressSlugs = boardStatuses
-    .filter((s) => s.slug !== firstSlug && s.slug !== "done")
-    .map((s) => s.slug);
-
-  // Cards in progress — listed individually
-  const inProgressTasks = await Task.find({
-    status: { $in: inProgressSlugs },
-    archived: { $ne: true },
-  })
-    .sort({ updatedAt: -1 })
-    .lean();
-
-  // Counts for other statuses
-  const backlogCount = await Task.countDocuments({
-    status: firstSlug,
-    archived: { $ne: true },
-  });
-  const doneCount = await Task.countDocuments({
-    status: "done",
-    archived: { $ne: true },
-  });
-
-  // Overdue tasks
-  const overdueTasks = await Task.find({
-    deadline: { $lt: today },
-    status: { $nin: ["done", "completed"] },
-    archived: { $ne: true },
-  })
-    .sort({ deadline: 1 })
-    .limit(10)
-    .lean();
-
-  // Upcoming deadlines (next 3 days)
-  const in3Days = new Date(today);
-  in3Days.setDate(in3Days.getDate() + 3);
-  const upcomingTasks = await Task.find({
-    deadline: { $gte: today, $lte: in3Days },
-    status: { $nin: ["done", "completed"] },
-    archived: { $ne: true },
-  })
-    .sort({ deadline: 1 })
-    .limit(10)
-    .lean();
+  const statusLabelMap: Record<string, string> = {};
+  for (const s of boardStatuses) statusLabelMap[s.slug] = s.label;
 
   // Active projects
   const activeProjects = await Project.find({ status: "active" }).lean();
 
-  // Status label lookup
-  const statusLabelMap: Record<string, string> = {};
-  for (const s of boardStatuses) {
-    statusLabelMap[s.slug] = s.label;
+  // Count cards per status per project (single aggregation)
+  const statusCounts = await Task.aggregate([
+    { $match: { archived: { $ne: true } } },
+    { $group: { _id: { projectId: "$projectId", status: "$status" }, count: { $sum: 1 } } },
+  ]);
+
+  // Build a map: projectId -> { slug: count }
+  const projectStatusMap: Record<string, Record<string, number>> = {};
+  for (const row of statusCounts) {
+    const pid = String(row._id.projectId);
+    if (!projectStatusMap[pid]) projectStatusMap[pid] = {};
+    projectStatusMap[pid][row._id.status] = row.count;
   }
+
+  // Overall counts across all projects
+  const overallCounts: Record<string, number> = {};
+  for (const s of boardStatuses) overallCounts[s.slug] = 0;
+  for (const row of statusCounts) {
+    overallCounts[row._id.status] = (overallCounts[row._id.status] || 0) + row.count;
+  }
+  const totalCards = Object.values(overallCounts).reduce((a, b) => a + b, 0);
+
+  // Overdue & upcoming — counts only
+  const overdueCount = await Task.countDocuments({
+    deadline: { $lt: today },
+    status: { $nin: ["done", "completed"] },
+    archived: { $ne: true },
+  });
+  const in3Days = new Date(today);
+  in3Days.setDate(in3Days.getDate() + 3);
+  const upcomingCount = await Task.countDocuments({
+    deadline: { $gte: today, $lte: in3Days },
+    status: { $nin: ["done", "completed"] },
+    archived: { $ne: true },
+  });
 
   // ── Build Slack Block Kit message ──
   const dateStr = today.toLocaleDateString("en-US", {
@@ -161,8 +149,6 @@ export async function GET(req: NextRequest) {
     month: "long",
     day: "numeric",
   });
-
-  const totalActive = backlogCount + inProgressTasks.length;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const blocks: any[] = [];
@@ -173,99 +159,51 @@ export async function GET(req: NextRequest) {
     text: { type: "plain_text", text: `Daily Digest — ${dateStr}`, emoji: true },
   });
 
-  // Summary table
+  // Overall summary fields (2-column grid)
   blocks.push({
     type: "section",
     fields: [
-      { type: "mrkdwn", text: `*Backlog*\n${backlogCount}` },
-      { type: "mrkdwn", text: `*In Progress*\n${inProgressTasks.length}` },
-      { type: "mrkdwn", text: `*Done*\n${doneCount}` },
-      { type: "mrkdwn", text: `*Total Active*\n${totalActive}` },
-      { type: "mrkdwn", text: `*Overdue*\n${overdueTasks.length}` },
-      { type: "mrkdwn", text: `*Upcoming*\n${upcomingTasks.length}` },
+      { type: "mrkdwn", text: `*Total Cards*\n${totalCards}` },
+      { type: "mrkdwn", text: `*Overdue*\n${overdueCount}` },
+      ...boardStatuses.map((s) => ({
+        type: "mrkdwn",
+        text: `*${s.label}*\n${overallCounts[s.slug] || 0}`,
+      })),
+      { type: "mrkdwn", text: `*Upcoming (3d)*\n${upcomingCount}` },
     ],
   });
 
   blocks.push({ type: "divider" });
 
-  // In-progress cards grouped by project
-  if (inProgressTasks.length > 0) {
-    const byProject: Record<string, typeof inProgressTasks> = {};
-    for (const t of inProgressTasks) {
-      const pid = String(t.projectId);
-      if (!byProject[pid]) byProject[pid] = [];
-      byProject[pid].push(t);
+  // Per-project status table
+  if (activeProjects.length > 0) {
+    // Table header row
+    const colHeaders = boardStatuses.map((s) => s.label);
+    let table = `\`${"Project".padEnd(18)}${colHeaders.map((h) => h.padStart(10)).join("")}\`\n`;
+
+    for (const p of activeProjects) {
+      const pid = String(p._id);
+      const counts = projectStatusMap[pid] || {};
+      const name = p.name.length > 16 ? p.name.slice(0, 15) + "…" : p.name;
+      const cols = boardStatuses.map((s) => String(counts[s.slug] || 0).padStart(10));
+      table += `\`${name.padEnd(18)}${cols.join("")}\`\n`;
     }
-
-    for (const [projectId, tasks] of Object.entries(byProject)) {
-      const project = activeProjects.find((p) => String(p._id) === projectId);
-      const projectName = project?.name || "Unknown";
-
-      const rows = tasks.map((t) => {
-        const cardNo = t.cardNumber ? `SP-${String(t.cardNumber).padStart(3, "0")}` : "";
-        const status = statusLabelMap[t.status] || t.status;
-        const priority = t.priority === "high" ? "!!!" : t.priority === "medium" ? "!!" : "!";
-        const assignees = t.assignees?.length ? t.assignees.join(", ") : "—";
-        const link = `<${APP_URL}/projects/${projectId}/cards/${t._id}|${t.title}>`;
-        return `\`${cardNo}\`  ${link}\n      _${status}_  ·  ${priority}  ·  ${assignees}`;
-      });
-
-      blocks.push({
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `*<${APP_URL}/projects/${projectId}|${projectName}>*  ·  ${tasks.length} in progress\n\n${rows.join("\n\n")}`,
-        },
-      });
-    }
-
-    blocks.push({ type: "divider" });
-  }
-
-  // Overdue
-  if (overdueTasks.length > 0) {
-    const rows = overdueTasks.map((t) => {
-      const d = new Date(t.deadline!).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      const cardNo = t.cardNumber ? `SP-${String(t.cardNumber).padStart(3, "0")}` : "";
-      const assignees = t.assignees?.length ? t.assignees.join(", ") : "—";
-      return `\`${cardNo}\`  <${APP_URL}/projects/${t.projectId}/cards/${t._id}|${t.title}>  ·  _due ${d}_  ·  ${assignees}`;
-    });
 
     blocks.push({
       type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*Overdue (${overdueTasks.length})*\n\n${rows.join("\n")}`,
-      },
+      text: { type: "mrkdwn", text: table.trim() },
     });
-
-    blocks.push({ type: "divider" });
   }
 
-  // Upcoming deadlines
-  if (upcomingTasks.length > 0) {
-    const rows = upcomingTasks.map((t) => {
-      const d = new Date(t.deadline!).toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-      });
-      const cardNo = t.cardNumber ? `SP-${String(t.cardNumber).padStart(3, "0")}` : "";
-      const assignees = t.assignees?.length ? t.assignees.join(", ") : "—";
-      return `\`${cardNo}\`  <${APP_URL}/projects/${t.projectId}/cards/${t._id}|${t.title}>  ·  _${d}_  ·  ${assignees}`;
-    });
-
+  if (recurringCreated > 0) {
     blocks.push({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `*Upcoming Deadlines (next 3 days)*\n\n${rows.join("\n")}`,
-      },
+      type: "context",
+      elements: [{ type: "mrkdwn", text: `_${recurringCreated} recurring task${recurringCreated > 1 ? "s" : ""} created today_` }],
     });
   }
 
   // Fallback plain text
-  const text = `Daily Digest — ${dateStr} | Backlog: ${backlogCount} | In Progress: ${inProgressTasks.length} | Done: ${doneCount} | Overdue: ${overdueTasks.length}`;
+  const text = `Daily Digest — ${dateStr} | Total: ${totalCards} | Overdue: ${overdueCount} | Upcoming: ${upcomingCount}`;
 
   if (!SLACK_BOT_TOKEN && !SLACK_WEBHOOK_URL) {
     return NextResponse.json({ message: "Slack not configured", digest: text, blocks });
@@ -275,9 +213,9 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     sent: true,
-    stats: { backlogCount, inProgress: inProgressTasks.length, doneCount },
+    totalCards,
+    overdueCount,
+    upcomingCount,
     recurringCreated,
-    overdue: overdueTasks.length,
-    upcoming: upcomingTasks.length,
   });
 }
