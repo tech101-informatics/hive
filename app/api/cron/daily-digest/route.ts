@@ -159,43 +159,36 @@ export async function GET(req: NextRequest) {
     text: { type: "plain_text", text: `Daily Digest — ${dateStr}`, emoji: true },
   });
 
-  // Overall summary fields (2-column grid)
+  // Key metrics — compact row
   blocks.push({
     type: "section",
     fields: [
-      { type: "mrkdwn", text: `*Total Cards*\n${totalCards}` },
+      { type: "mrkdwn", text: `*Total*\n${totalCards}` },
       { type: "mrkdwn", text: `*Overdue*\n${overdueCount}` },
-      ...boardStatuses.map((s) => ({
-        type: "mrkdwn",
-        text: `*${s.label}*\n${overallCounts[s.slug] || 0}`,
-      })),
-      { type: "mrkdwn", text: `*Upcoming (3d)*\n${upcomingCount}` },
     ],
   });
 
   blocks.push({ type: "divider" });
 
-  // Per-project status table
-  if (activeProjects.length > 0) {
-    // Table header row
-    const colHeaders = boardStatuses.map((s) => s.label);
-    let table = `\`${"Project".padEnd(18)}${colHeaders.map((h) => h.padStart(10)).join("")}\`\n`;
-
-    for (const p of activeProjects) {
-      const pid = String(p._id);
-      const counts = projectStatusMap[pid] || {};
-      const name = p.name.length > 16 ? p.name.slice(0, 15) + "…" : p.name;
-      const cols = boardStatuses.map((s) => String(counts[s.slug] || 0).padStart(10));
-      table += `\`${name.padEnd(18)}${cols.join("")}\`\n`;
-    }
+  // Per-project breakdown — one block per project, status counts inline
+  for (const p of activeProjects) {
+    const pid = String(p._id);
+    const counts = projectStatusMap[pid] || {};
+    const statusLine = boardStatuses
+      .map((s) => `${s.label}: *${counts[s.slug] || 0}*`)
+      .join("  ·  ");
 
     blocks.push({
       type: "section",
-      text: { type: "mrkdwn", text: table.trim() },
+      text: {
+        type: "mrkdwn",
+        text: `*${p.name}*\n${statusLine}`,
+      },
     });
   }
 
   if (recurringCreated > 0) {
+    blocks.push({ type: "divider" });
     blocks.push({
       type: "context",
       elements: [{ type: "mrkdwn", text: `_${recurringCreated} recurring task${recurringCreated > 1 ? "s" : ""} created today_` }],
