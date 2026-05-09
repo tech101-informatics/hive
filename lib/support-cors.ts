@@ -63,21 +63,12 @@ const DASHBOARD_ORIGINS = (process.env.SUPPORT_DASHBOARD_CORS_ORIGINS || "")
 
 export function dashboardCorsHeaders(req: NextRequest): Record<string, string> {
   const origin = req.headers.get("origin");
-  console.log("[dashboard CORS] origin =", JSON.stringify(origin), "allowlist =", DASHBOARD_ORIGINS);
-
-  if (!origin) {
-    console.log("[dashboard CORS] no origin header — treating as server-to-server");
-    return {};
-  }
+  if (!origin) return {};
 
   const allowAny = DASHBOARD_ORIGINS.includes("*");
   const allowed = allowAny || DASHBOARD_ORIGINS.includes(origin);
-  if (!allowed) {
-    console.log("[dashboard CORS] origin NOT in allowlist — preflight will fail");
-    return {};
-  }
+  if (!allowed) return {};
 
-  console.log("[dashboard CORS] origin allowed — sending CORS headers");
   return {
     "Access-Control-Allow-Origin": allowAny ? "*" : origin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
