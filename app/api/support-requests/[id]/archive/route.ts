@@ -20,46 +20,34 @@ export async function POST(
     return NextResponse.json({ error: "Invalid id" }, { status: 400 });
   }
 
-  await connectDB();
-
-  const body = await req.json();
-  const replyBody = typeof body.body === "string" ? body.body.trim() : "";
-  if (!replyBody) {
-    return NextResponse.json({ error: "Reply body is required" }, { status: 400 });
+  let body: { archived?: boolean } = {};
+  try {
+    body = await req.json();
+  } catch {
+    // empty body → default to archive
   }
+  const archived = body.archived !== false;
 
-  const authorEmail = session!.user.email || "";
-  const authorName = session!.user.name || authorEmail || "admin";
-
-  const reply = {
-    body: replyBody,
-    authorEmail,
-    authorName,
-    authorRole: "admin" as const,
-    createdAt: new Date(),
-  };
-
+  await connectDB();
   const ticket = await SupportRequest.findByIdAndUpdate(
     id,
-    { $push: { replies: reply } },
+    { $set: { archivedAt: archived ? new Date() : null } },
     { new: true },
-  );
+  ).lean<{ slackThreadTs?: string; cardNumber?: number; archivedAt?: Date | null }>();
 
   if (!ticket) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (ticket.status === "new" || ticket.status === "read") {
-    ticket.status = "replied";
-    await ticket.save();
-  }
-
   if (ticket.slackThreadTs) {
+    const actor = session!.user.name || session!.user.email || "admin";
     await notifyTicketThread(
       ticket.slackThreadTs,
-      `*Reply* on SR-${ticket.cardNumber} by *${authorName}*`,
+      archived
+        ? `*Archived* SR-${ticket.cardNumber} by *${actor}*`
+        : `*Unarchived* SR-${ticket.cardNumber} by *${actor}*`,
     );
   }
 
-  return NextResponse.json(ticket, { status: 201 });
+  return NextResponse.json(ticket);
 }

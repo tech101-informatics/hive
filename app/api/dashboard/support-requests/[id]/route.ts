@@ -7,6 +7,7 @@ import { connectDB } from "@/lib/mongodb";
 import { SupportRequest } from "@/models/SupportRequest";
 import { verifyDashboardSignature } from "@/lib/support-auth";
 import { dashboardCorsHeaders, withDashboardCors } from "@/lib/support-cors";
+import { sanitizeTicketForCustomer } from "@/lib/support-helpers";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -45,13 +46,13 @@ export async function GET(
   }
 
   await connectDB();
-  const ticket = await SupportRequest.findById(id).lean<{ submitterEmail?: string }>();
-  if (!ticket) {
+  const ticket = await SupportRequest.findById(id).lean<Record<string, unknown> & { submitterEmail?: string; archivedAt?: Date | null }>();
+  if (!ticket || ticket.archivedAt) {
     return withDashboardCors(req, NextResponse.json({ error: "Not found" }, { status: 404 }));
   }
   if (ticket.submitterEmail !== email) {
     return withDashboardCors(req, NextResponse.json({ error: "Not found" }, { status: 404 }));
   }
 
-  return withDashboardCors(req, NextResponse.json(ticket));
+  return withDashboardCors(req, NextResponse.json(sanitizeTicketForCustomer(ticket)));
 }

@@ -8,6 +8,7 @@ import { verifyDashboardSignature } from "@/lib/support-auth";
 import {
   getNextSupportCardNumber,
   normalizeTicketInput,
+  sanitizeTicketForCustomer,
 } from "@/lib/support-helpers";
 import { notifyTicketCreated } from "@/lib/support-slack";
 import { dashboardCorsHeaders, withDashboardCors } from "@/lib/support-cors";
@@ -103,9 +104,15 @@ export async function GET(req: NextRequest) {
   }
 
   await connectDB();
-  const tickets = await SupportRequest.find({ submitterEmail: email })
+  const tickets = await SupportRequest.find({
+    submitterEmail: email,
+    archivedAt: null,
+  })
     .sort({ createdAt: -1 })
     .lean();
 
-  return withDashboardCors(req, NextResponse.json(tickets));
+  return withDashboardCors(
+    req,
+    NextResponse.json(tickets.map(sanitizeTicketForCustomer)),
+  );
 }

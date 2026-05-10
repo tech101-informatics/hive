@@ -25,23 +25,42 @@ export function verifyDashboardSignature(
     console.warn("[support-auth] SUPPORT_HMAC_SECRET not set — rejecting all dashboard requests");
     return false;
   }
-  if (!timestamp || !signature) return false;
+  if (!timestamp || !signature) {
+    console.log("[support-auth] missing timestamp or signature header", { timestamp, signature });
+    return false;
+  }
 
   const ts = parseInt(timestamp, 10);
-  if (!Number.isFinite(ts)) return false;
+  if (!Number.isFinite(ts)) {
+    console.log("[support-auth] non-numeric timestamp:", timestamp);
+    return false;
+  }
 
   const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - ts) > REPLAY_WINDOW_SECONDS) return false;
+  if (Math.abs(now - ts) > REPLAY_WINDOW_SECONDS) {
+    console.log("[support-auth] timestamp out of replay window", { now, ts, drift: now - ts });
+    return false;
+  }
 
   const base = `${timestamp}.${pathWithQuery}.${rawBody}`;
   const expected = crypto.createHmac("sha256", HMAC_SECRET).update(base).digest("hex");
 
+  console.log("[support-auth] base       =", JSON.stringify(base));
+  console.log("[support-auth] expected   =", expected);
+  console.log("[support-auth] received   =", signature);
+  console.log("[support-auth] secret_len =", HMAC_SECRET.length);
+
   const expectedBuf = Buffer.from(expected);
   const signatureBuf = Buffer.from(signature);
-  if (expectedBuf.length !== signatureBuf.length) return false;
+  if (expectedBuf.length !== signatureBuf.length) {
+    console.log("[support-auth] length mismatch:", expectedBuf.length, "vs", signatureBuf.length);
+    return false;
+  }
 
   try {
-    return crypto.timingSafeEqual(expectedBuf, signatureBuf);
+    const ok = crypto.timingSafeEqual(expectedBuf, signatureBuf);
+    if (!ok) console.log("[support-auth] signatures differ — see expected vs received above");
+    return ok;
   } catch {
     return false;
   }

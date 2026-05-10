@@ -17,12 +17,21 @@ export async function GET(req: NextRequest) {
   const category = searchParams.get("category");
   const source = searchParams.get("source");
   const submitterEmail = searchParams.get("submitterEmail");
+  const archived = searchParams.get("archived");
 
   const filter: Record<string, unknown> = {};
   if (status) filter.status = status;
   if (category) filter.category = category;
   if (source) filter.source = source;
   if (submitterEmail) filter.submitterEmail = submitterEmail.toLowerCase();
+
+  // Archive visibility: default excludes archived; ?archived=true shows only archived;
+  // ?archived=all shows both.
+  if (archived === "true") {
+    filter.archivedAt = { $ne: null };
+  } else if (archived !== "all") {
+    filter.archivedAt = null;
+  }
 
   const tickets = await SupportRequest.find(filter)
     .sort({ createdAt: -1 })

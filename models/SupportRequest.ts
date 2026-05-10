@@ -11,10 +11,13 @@ export type SupportStatus =
 export type SupportCategory = "bug" | "feature" | "billing" | "other";
 export type SupportSource = "dashboard" | "landing";
 
+export type SupportAuthorRole = "admin" | "customer";
+
 export interface ISupportReply {
   body: string;
   authorEmail: string;
   authorName: string;
+  authorRole: SupportAuthorRole;
   createdAt: Date;
 }
 
@@ -23,6 +26,11 @@ const SupportReplySchema = new Schema<ISupportReply>(
     body: { type: String, required: true, trim: true },
     authorEmail: { type: String, required: true, lowercase: true, trim: true },
     authorName: { type: String, required: true, trim: true },
+    authorRole: {
+      type: String,
+      enum: ["admin", "customer"],
+      default: "admin",
+    },
   },
   { timestamps: { createdAt: true, updatedAt: false }, _id: true },
 );
@@ -42,6 +50,7 @@ export interface ISupportRequest extends Document {
   linkedTaskId: mongoose.Types.ObjectId | null;
   linkedProjectId: mongoose.Types.ObjectId | null;
   slackThreadTs: string;
+  archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -74,6 +83,7 @@ const SupportRequestSchema = new Schema<ISupportRequest>(
     linkedTaskId: { type: Schema.Types.ObjectId, ref: "Task", default: null },
     linkedProjectId: { type: Schema.Types.ObjectId, ref: "Project", default: null },
     slackThreadTs: { type: String, default: "" },
+    archivedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

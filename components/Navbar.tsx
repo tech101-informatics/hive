@@ -14,6 +14,7 @@ import {
   Moon,
   BarChart3,
   Activity,
+  LifeBuoy,
   Menu,
   X,
 } from "lucide-react";
@@ -66,6 +67,7 @@ export function Navbar() {
     ...links,
     ...(isAdmin
       ? [
+          { href: "/support", label: "Support", icon: LifeBuoy },
           { href: "/activity", label: "Activity", icon: Activity },
           { href: "/analytics", label: "Analytics", icon: BarChart3 },
           { href: "/settings/board", label: "Settings", icon: Settings },

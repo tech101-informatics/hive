@@ -99,3 +99,34 @@ export async function PATCH(
 
   return NextResponse.json(ticket);
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { session, error } = await getSessionOrUnauthorized();
+  if (error) return error;
+
+  const { id } = await params;
+  if (!mongoose.isValidObjectId(id)) {
+    return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  }
+
+  await connectDB();
+  const ticket = await SupportRequest.findById(id).lean<{ slackThreadTs?: string; cardNumber?: number }>();
+  if (!ticket) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  await SupportRequest.deleteOne({ _id: id });
+
+  if (ticket.slackThreadTs) {
+    const actor = session!.user.name || session!.user.email || "admin";
+    await notifyTicketThread(
+      ticket.slackThreadTs,
+      `*Deleted* SR-${ticket.cardNumber} by *${actor}*`,
+    );
+  }
+
+  return NextResponse.json({ ok: true });
+}

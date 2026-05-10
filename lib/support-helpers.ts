@@ -98,3 +98,29 @@ export function getClientIp(req: Request): string | undefined {
   if (realIp) return realIp.trim();
   return undefined;
 }
+
+/**
+ * Strip identifying author info (name/email) from replies before returning to
+ * the dashboard. The customer only needs to know the role + body + timestamp.
+ */
+type RawReply = {
+  _id?: unknown;
+  body?: string;
+  authorRole?: string;
+  createdAt?: Date | string;
+};
+type RawTicket = {
+  replies?: RawReply[];
+  archivedAt?: Date | string | null;
+} & Record<string, unknown>;
+
+export function sanitizeTicketForCustomer<T extends RawTicket>(ticket: T): T {
+  const replies = (ticket.replies || []).map((r) => ({
+    _id: r._id,
+    body: r.body,
+    authorRole: r.authorRole ?? "admin",
+    createdAt: r.createdAt,
+  }));
+  const { archivedAt: _archivedAt, ...rest } = ticket;
+  return { ...rest, replies } as T;
+}
