@@ -1,9 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const ORIGINS = (process.env.SUPPORT_PUBLIC_CORS_ORIGINS || "")
+const PUBLIC_ORIGINS = (process.env.SUPPORT_PUBLIC_CORS_ORIGINS || "")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
+
+const DASHBOARD_ORIGINS = (process.env.SUPPORT_DASHBOARD_CORS_ORIGINS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+console.log("[support-cors] startup: SUPPORT_PUBLIC_CORS_ORIGINS =", PUBLIC_ORIGINS);
+console.log("[support-cors] startup: SUPPORT_DASHBOARD_CORS_ORIGINS =", DASHBOARD_ORIGINS);
+
+function logCors(
+  scope: "public" | "dashboard",
+  req: NextRequest,
+  origin: string | null,
+  allowlist: string[],
+  decision: "no-origin" | "allowed" | "rejected",
+) {
+  const url = new URL(req.url);
+  console.log(
+    `[cors:${scope}]`,
+    `method=${req.method}`,
+    `path=${url.pathname}${url.search}`,
+    `origin=${JSON.stringify(origin)}`,
+    `allowlist=${JSON.stringify(allowlist)}`,
+    `decision=${decision}`,
+  );
+}
 
 /**
  * Build CORS headers for the public support endpoint.
@@ -19,15 +45,20 @@ const ORIGINS = (process.env.SUPPORT_PUBLIC_CORS_ORIGINS || "")
 export function publicCorsHeaders(req: NextRequest): Record<string, string> {
   const origin = req.headers.get("origin");
 
-  console.log(origin);
-  if (!origin) return {};
+  if (!origin) {
+    logCors("public", req, origin, PUBLIC_ORIGINS, "no-origin");
+    return {};
+  }
 
-  const allowAny = ORIGINS.includes("*");
-  const allowed = allowAny || ORIGINS.includes(origin);
+  const allowAny = PUBLIC_ORIGINS.includes("*");
+  const allowed = allowAny || PUBLIC_ORIGINS.includes(origin);
 
-  console.log(origin);
-  if (!allowed) return {};
+  if (!allowed) {
+    logCors("public", req, origin, PUBLIC_ORIGINS, "rejected");
+    return {};
+  }
 
+  logCors("public", req, origin, PUBLIC_ORIGINS, "allowed");
   return {
     "Access-Control-Allow-Origin": allowAny ? "*" : origin,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -56,19 +87,23 @@ export function withCors(req: NextRequest, res: NextResponse): NextResponse {
 // in production so browser calls are blocked and the proper server-to-server
 // pattern is the only one that works.
 
-const DASHBOARD_ORIGINS = (process.env.SUPPORT_DASHBOARD_CORS_ORIGINS || "")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
-
 export function dashboardCorsHeaders(req: NextRequest): Record<string, string> {
   const origin = req.headers.get("origin");
-  if (!origin) return {};
+
+  if (!origin) {
+    logCors("dashboard", req, origin, DASHBOARD_ORIGINS, "no-origin");
+    return {};
+  }
 
   const allowAny = DASHBOARD_ORIGINS.includes("*");
   const allowed = allowAny || DASHBOARD_ORIGINS.includes(origin);
-  if (!allowed) return {};
 
+  if (!allowed) {
+    logCors("dashboard", req, origin, DASHBOARD_ORIGINS, "rejected");
+    return {};
+  }
+
+  logCors("dashboard", req, origin, DASHBOARD_ORIGINS, "allowed");
   return {
     "Access-Control-Allow-Origin": allowAny ? "*" : origin,
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
