@@ -22,6 +22,8 @@ import {
   ArchiveRestore,
   LayoutGrid,
   Table2,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { CreateTaskModal } from "@/components/CreateTaskModal";
@@ -36,6 +38,7 @@ interface Project {
   description: string;
   status: string;
   color: string;
+  isAdminOnly?: boolean;
 }
 
 interface SavedFilterData {
@@ -517,6 +520,18 @@ export default function ProjectPage() {
     router.push("/projects");
   };
 
+  const handleToggleAdminOnly = async () => {
+    if (!project) return;
+    const next = !project.isAdminOnly;
+    await fetch(`/api/projects/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isAdminOnly: next }),
+    });
+    setBoardMenuOpen(false);
+    fetchData();
+  };
+
   const initials = (name: string) =>
     name
       .split(" ")
@@ -553,9 +568,19 @@ export default function ProjectPage() {
             style={{ background: project?.color }}
           />
           <div className="min-w-0">
-            <h1 className="text-lg md:text-xl font-semibold text-text-primary tracking-tight truncate">
-              {project?.name}
-            </h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-lg md:text-xl font-semibold text-text-primary tracking-tight truncate">
+                {project?.name}
+              </h1>
+              {project?.isAdminOnly && (
+                <span
+                  className="inline-flex items-center gap-1 text-xs text-text-disabled bg-bg-card px-1.5 py-0.5 rounded"
+                  title="Admin only — hidden from non-admins and Slack"
+                >
+                  <Lock size={10} /> Admin
+                </span>
+              )}
+            </div>
             {project?.description && (
               <p className="text-text-secondary text-sm truncate hidden sm:block">
                 {project.description}
@@ -620,6 +645,21 @@ export default function ProjectPage() {
                   >
                     <Download size={14} /> Export CSV
                   </a>
+                  <div className="h-px bg-bg-base mx-2 my-0.5" />
+                  <button
+                    onClick={handleToggleAdminOnly}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-text-primary hover:bg-bg-surface transition-colors"
+                  >
+                    {project?.isAdminOnly ? (
+                      <>
+                        <Unlock size={14} /> Make Visible to All
+                      </>
+                    ) : (
+                      <>
+                        <Lock size={14} /> Lock to Admins Only
+                      </>
+                    )}
+                  </button>
                   <div className="h-px bg-bg-base mx-2 my-0.5" />
                   <button
                     onClick={() => {

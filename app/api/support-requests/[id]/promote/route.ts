@@ -9,7 +9,7 @@ import { Task } from "@/models/Task";
 import { Project } from "@/models/Project";
 import { Counter } from "@/models/Counter";
 import { BoardStatus } from "@/models/BoardStatus";
-import { getSessionOrUnauthorized } from "@/lib/auth-helpers";
+import { getSessionOrUnauthorized, getVisibleProject } from "@/lib/auth-helpers";
 import { sendSlackNotification, buildSlackMap } from "@/lib/slack";
 import { notifyTicketThread } from "@/lib/support-slack";
 import { logActivity } from "@/lib/activity";
@@ -55,7 +55,7 @@ export async function POST(
     );
   }
 
-  const project = await Project.findById(projectId);
+  const project = await getVisibleProject(session, projectId);
   if (!project) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }

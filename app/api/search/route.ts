@@ -4,10 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { Task } from "@/models/Task";
 import { Project } from "@/models/Project";
-import { getSessionOrUnauthorized } from "@/lib/auth-helpers";
+import { getSessionOrUnauthorized, visibleProjectIds } from "@/lib/auth-helpers";
 
 export async function GET(req: NextRequest) {
-  const { error } = await getSessionOrUnauthorized();
+  const { session, error } = await getSessionOrUnauthorized();
   if (error) return error;
   await connectDB();
 
@@ -26,9 +26,12 @@ export async function GET(req: NextRequest) {
     conditions.push({ cardNumber: parseInt(cardNumMatch[1]) });
   }
 
+  const allowedProjectIds = await visibleProjectIds(session);
+
   const tasks = await Task.find({
     $or: conditions,
     archived: { $ne: true },
+    projectId: { $in: allowedProjectIds },
   })
     .sort({ updatedAt: -1 })
     .limit(20)

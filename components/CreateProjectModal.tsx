@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { X } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { X, Lock } from "lucide-react";
 
 const COLORS = [
   "#6366f1",
@@ -19,11 +20,14 @@ interface Props {
 }
 
 export function CreateProjectModal({ onClose, onCreated }: Props) {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "admin";
   const [form, setForm] = useState({
     name: "",
     description: "",
     color: "#6366f1",
     status: "active",
+    isAdminOnly: false,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -128,6 +132,27 @@ export function CreateProjectModal({ onClose, onCreated }: Props) {
               </option>
             </select>
           </div>
+
+          {isAdmin && (
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.isAdminOnly}
+                onChange={(e) =>
+                  setForm({ ...form, isAdminOnly: e.target.checked })
+                }
+                className="mt-0.5 w-4 h-4 rounded accent-brand cursor-pointer"
+              />
+              <div>
+                <div className="flex items-center gap-1.5 text-sm font-medium text-text-primary">
+                  <Lock size={12} /> Admin only
+                </div>
+                <p className="text-xs text-text-disabled mt-0.5">
+                  Hide this board and all its cards from non-admin users. No Slack notifications either.
+                </p>
+              </div>
+            </label>
+          )}
         </div>
 
         <div className="flex gap-3 mt-6">

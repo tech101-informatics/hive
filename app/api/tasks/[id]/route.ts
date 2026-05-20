@@ -8,7 +8,7 @@ import { Project } from "@/models/Project";
 import { Counter } from "@/models/Counter";
 import { sendSlackNotification, buildSlackMap } from "@/lib/slack";
 import { logActivity } from "@/lib/activity";
-import { getSessionOrUnauthorized, requireAdmin } from "@/lib/auth-helpers";
+import { getSessionOrUnauthorized, requireAdmin, getVisibleProject } from "@/lib/auth-helpers";
 import { trackStatusChange, trackAssigneeChange, closeAllMemberTimesForTask } from "@/lib/time-tracking";
 
 function findTask(id: string) {
@@ -36,12 +36,14 @@ export async function GET(
   _: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { error } = await getSessionOrUnauthorized();
+  const { session, error } = await getSessionOrUnauthorized();
   if (error) return error;
   const { id } = await params;
   await connectDB();
   const task = await findTask(id);
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const project = await getVisibleProject(session, String(task.projectId));
+  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
   await ensureCardNumber(task);
   return NextResponse.json(task);
 }
@@ -58,6 +60,9 @@ export async function PUT(
   const body = await req.json();
   const oldTask = await findTask(id);
   if (!oldTask)
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const visibleProject = await getVisibleProject(session, String(oldTask.projectId));
+  if (!visibleProject)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   const previousStatus = oldTask.status;
   const previousAssignees = [...(oldTask.assignees || [])];
@@ -188,7 +193,7 @@ export async function PUT(
 
     if (changes.length > 0) {
       const { postUpdateToThread } = await import("@/lib/slack");
-      await postUpdateToThread(threadTs, task.title, projectName, userName, changes);
+      await postUpdateToThread(threadTs, task.title, projectName, userName, changes, pid);
     }
   }
 
@@ -319,6 +324,8 @@ export async function DELETE(
   await connectDB();
   const task = await findTask(id);
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const project = await getVisibleProject(session, String(task.projectId));
+  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await logActivity({
     taskId: String(task._id),

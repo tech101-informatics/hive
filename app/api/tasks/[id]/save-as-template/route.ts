@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { Task } from "@/models/Task";
 import { CardTemplate } from "@/models/CardTemplate";
-import { requireAdmin } from "@/lib/auth-helpers";
+import { requireAdmin, getVisibleProject } from "@/lib/auth-helpers";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { session, error } = await requireAdmin();
@@ -20,6 +20,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const task = await Task.findById(id).lean() as any;
   if (!task) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  const project = await getVisibleProject(session, String(task.projectId));
+  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const template = await CardTemplate.create({
     name: name.trim(),

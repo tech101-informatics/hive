@@ -9,6 +9,7 @@ import {
   MoreVertical,
   Archive,
   Trash2,
+  Lock,
 } from "lucide-react";
 import { CreateProjectModal } from "@/components/CreateProjectModal";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -19,6 +20,7 @@ interface Project {
   description: string;
   status: string;
   color: string;
+  isAdminOnly?: boolean;
   createdAt: string;
   taskCount?: number;
   doneCount?: number;
@@ -124,9 +126,16 @@ export default function ProjectsPage() {
                       style={{ background: project.color }}
                     />
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-text-primary text-base truncate">
-                        {project.name}
-                      </h3>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="font-medium text-text-primary text-base truncate">
+                          {project.name}
+                        </h3>
+                        {project.isAdminOnly && (
+                          <span title="Admin only">
+                            <Lock size={12} className="text-text-disabled flex-shrink-0" />
+                          </span>
+                        )}
+                      </div>
                       <p className="text-text-disabled text-sm mt-0.5 line-clamp-2">
                         {project.description || "No description"}
                       </p>

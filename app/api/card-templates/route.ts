@@ -4,15 +4,18 @@ export const maxDuration = 30;
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { CardTemplate } from "@/models/CardTemplate";
-import { getSessionOrUnauthorized } from "@/lib/auth-helpers";
-import { requireAdmin } from "@/lib/auth-helpers";
+import { getSessionOrUnauthorized, requireAdmin, getVisibleProject } from "@/lib/auth-helpers";
 
 export async function GET(req: NextRequest) {
-  const { error } = await getSessionOrUnauthorized();
+  const { session, error } = await getSessionOrUnauthorized();
   if (error) return error;
   await connectDB();
 
   const projectId = req.nextUrl.searchParams.get("projectId");
+  if (projectId) {
+    const project = await getVisibleProject(session, projectId);
+    if (!project) return NextResponse.json([]);
+  }
   const query = projectId
     ? { $or: [{ projectId }, { projectId: null }, { projectId: { $exists: false } }] }
     : { $or: [{ projectId: null }, { projectId: { $exists: false } }] };

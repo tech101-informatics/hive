@@ -7,14 +7,14 @@ import { Project } from "@/models/Project";
 import { Task } from "@/models/Task";
 import { BoardStatus } from "@/models/BoardStatus";
 import { sendSlackNotification } from "@/lib/slack";
-import { getSessionOrUnauthorized, requireAdmin } from "@/lib/auth-helpers";
+import { getSessionOrUnauthorized, requireAdmin, projectVisibilityFilter } from "@/lib/auth-helpers";
 
 export async function GET() {
-  const { error } = await getSessionOrUnauthorized();
+  const { session, error } = await getSessionOrUnauthorized();
   if (error) return error;
   await connectDB();
   const [projects, taskCounts, boardStatuses] = await Promise.all([
-    Project.find({ status: { $ne: "archived" } }).sort({ createdAt: -1 }).lean(),
+    Project.find({ status: { $ne: "archived" }, ...projectVisibilityFilter(session) }).sort({ createdAt: -1 }).lean(),
     Task.aggregate([
       { $match: { archived: { $ne: true } } },
       { $group: { _id: { projectId: "$projectId", status: "$status" }, count: { $sum: 1 } } },

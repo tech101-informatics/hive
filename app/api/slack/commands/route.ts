@@ -11,6 +11,14 @@ import { verifySlackRequest, sendSlackDM } from "@/lib/slack";
 const APP_URL =
   process.env.APP_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
 
+// Slack handlers must never expose admin-only boards.
+async function nonAdminProjectIdList(): Promise<unknown[]> {
+  const projects = await Project.find({ isAdminOnly: { $ne: true } })
+    .select("_id")
+    .lean<Array<{ _id: unknown }>>();
+  return projects.map((p) => p._id);
+}
+
 export async function POST(req: NextRequest) {
   // ── Read raw body for signature verification ───────────────
 
@@ -86,12 +94,16 @@ async function handleStatus() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  const allowedProjectIds = await nonAdminProjectIdList();
+  const projectScope = { projectId: { $in: allowedProjectIds } };
+
   const [completedToday, inProgress, overdueTasks] = await Promise.all([
-    Task.countDocuments({ status: "done", updatedAt: { $gte: today } }),
-    Task.countDocuments({ status: "in-progress" }),
+    Task.countDocuments({ status: "done", updatedAt: { $gte: today }, ...projectScope }),
+    Task.countDocuments({ status: "in-progress", ...projectScope }),
     Task.find({
       deadline: { $lt: new Date() },
       status: { $nin: ["done", "completed"] },
+      ...projectScope,
     })
       .populate("projectId")
       .limit(5)
@@ -144,9 +156,11 @@ async function handleMyTasks(userId: string, userName: string) {
   const member = await Member.findOne({ slackUserId: userId }).lean();
   const nameQuery = (member as any)?.name || userName;
 
+  const allowedProjectIds = await nonAdminProjectIdList();
   const tasks = await Task.find({
     status: { $nin: ["done", "completed"] },
     assignees: { $regex: nameQuery, $options: "i" },
+    projectId: { $in: allowedProjectIds },
   })
     .populate("projectId")
     .limit(10)
@@ -198,6 +212,7 @@ async function handleProject(name: string) {
 
   const project = await Project.findOne({
     name: { $regex: name, $options: "i" },
+    isAdminOnly: { $ne: true },
   }).lean();
 
   if (!project) {
@@ -254,9 +269,11 @@ async function handleProject(name: string) {
 // HANDLER: /hive overdue
 // ─────────────────────────────────────────────────────────────
 async function handleOverdue() {
+  const allowedProjectIds = await nonAdminProjectIdList();
   const tasks = await Task.find({
     deadline: { $lt: new Date() },
     status: { $nin: ["done", "completed"] },
+    projectId: { $in: allowedProjectIds },
   })
     .populate("projectId")
     .lean();
@@ -325,10 +342,12 @@ async function handleDone(title: string) {
     );
   }
 
+  const allowedProjectIds = await nonAdminProjectIdList();
   const task = await Task.findOneAndUpdate(
     {
       title: { $regex: title, $options: "i" },
       status: { $ne: "done" },
+      projectId: { $in: allowedProjectIds },
     },
     { status: "done" },
     { new: true },
@@ -387,6 +406,12 @@ async function handlePr({
   }
 
   const project = await Project.findById(task.projectId).lean();
+  if ((project as any)?.isAdminOnly) {
+    return slackEphemeral(
+      "No Hive task found for this thread.\n" +
+        "_Make sure you're running this inside a thread that was created by Hive._",
+    );
+  }
   const projectName = (project as any)?.name || "Unknown Project";
   const previousStatus = task.status;
   const isUpdate = !!task.prUrl;

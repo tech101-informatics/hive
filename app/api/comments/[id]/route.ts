@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { Comment } from "@/models/Comment";
-import { getSessionOrUnauthorized } from "@/lib/auth-helpers";
+import { Task } from "@/models/Task";
+import { getSessionOrUnauthorized, getVisibleProject } from "@/lib/auth-helpers";
 
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { session, error } = await getSessionOrUnauthorized();
@@ -13,6 +14,11 @@ export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id:
   if (!comment) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+
+  const task = await Task.findById(comment.taskId).select("projectId");
+  if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const project = await getVisibleProject(session, String(task.projectId));
+  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Only the author or admin can delete
   if (comment.authorEmail !== session!.user.email && session!.user.role !== "admin") {

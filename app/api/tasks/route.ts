@@ -10,7 +10,7 @@ import { Counter } from "@/models/Counter";
 import { BoardStatus } from "@/models/BoardStatus";
 import { sendSlackNotification, buildSlackMap } from "@/lib/slack";
 import { logActivity } from "@/lib/activity";
-import { getSessionOrUnauthorized, requireAdmin } from "@/lib/auth-helpers";
+import { getSessionOrUnauthorized, requireAdmin, getVisibleProject, visibleProjectIds } from "@/lib/auth-helpers";
 import { trackInitialStatus, trackInitialAssignees } from "@/lib/time-tracking";
 
 async function getNextCardNumber(): Promise<number> {
@@ -23,14 +23,20 @@ async function getNextCardNumber(): Promise<number> {
 }
 
 export async function GET(req: NextRequest) {
-  const { error } = await getSessionOrUnauthorized();
+  const { session, error } = await getSessionOrUnauthorized();
   if (error) return error;
   await connectDB();
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
   const includeArchived = searchParams.get("archived") === "true";
   const filter: Record<string, unknown> = {};
-  if (projectId) filter.projectId = projectId;
+  if (projectId) {
+    const project = await getVisibleProject(session, projectId);
+    if (!project) return NextResponse.json([]);
+    filter.projectId = projectId;
+  } else {
+    filter.projectId = { $in: await visibleProjectIds(session) };
+  }
   if (!includeArchived) filter.archived = { $ne: true };
   const tasks = await Task.find(filter).sort({ createdAt: -1 }).lean<Array<Record<string, unknown>>>();
 
@@ -63,13 +69,14 @@ export async function POST(req: NextRequest) {
   if (error) return error;
   await connectDB();
   const body = await req.json();
+  const project = await getVisibleProject(session, String(body.projectId || ""));
+  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!body.status) {
     const defaultStatus = await BoardStatus.findOne({ isDefault: true });
     body.status = defaultStatus?.slug || "todo";
   }
   const cardNumber = await getNextCardNumber();
   const task = await Task.create({ ...body, cardNumber });
-  const project = await Project.findById(body.projectId);
   const projectName = project?.name || "Unknown Project";
 
   const slackMap = await buildSlackMap();

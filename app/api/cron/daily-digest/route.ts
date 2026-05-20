@@ -104,12 +104,16 @@ export async function GET(req: NextRequest) {
   const statusLabelMap: Record<string, string> = {};
   for (const s of boardStatuses) statusLabelMap[s.slug] = s.label;
 
-  // Active projects
-  const activeProjects = await Project.find({ status: "active" }).lean();
+  // Active projects — exclude admin-only boards from the channel digest
+  const activeProjects = await Project.find({ status: "active", isAdminOnly: { $ne: true } }).lean();
+  const visibleProjectIdStrs = activeProjects.map((p) => String(p._id));
+  // Build a full set of non-admin-only ids (any status) for filtering task aggregations
+  const nonAdminProjects = await Project.find({ isAdminOnly: { $ne: true } }).select("_id").lean<Array<{ _id: unknown }>>();
+  const nonAdminProjectIds = nonAdminProjects.map((p) => p._id);
 
   // Count cards per status per project (single aggregation)
   const statusCounts = await Task.aggregate([
-    { $match: { archived: { $ne: true } } },
+    { $match: { archived: { $ne: true }, projectId: { $in: nonAdminProjectIds } } },
     { $group: { _id: { projectId: "$projectId", status: "$status" }, count: { $sum: 1 } } },
   ]);
 
@@ -129,11 +133,12 @@ export async function GET(req: NextRequest) {
   }
   const totalCards = Object.values(overallCounts).reduce((a, b) => a + b, 0);
 
-  // Overdue & upcoming — counts only
+  // Overdue & upcoming — counts only (exclude admin-only boards from channel digest)
   const overdueCount = await Task.countDocuments({
     deadline: { $lt: today },
     status: { $nin: ["done", "completed"] },
     archived: { $ne: true },
+    projectId: { $in: nonAdminProjectIds },
   });
   const in3Days = new Date(today);
   in3Days.setDate(in3Days.getDate() + 3);
@@ -141,6 +146,7 @@ export async function GET(req: NextRequest) {
     deadline: { $gte: today, $lte: in3Days },
     status: { $nin: ["done", "completed"] },
     archived: { $ne: true },
+    projectId: { $in: nonAdminProjectIds },
   });
 
   // ── Build Slack Block Kit message ──

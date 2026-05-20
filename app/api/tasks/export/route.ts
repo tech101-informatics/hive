@@ -4,7 +4,7 @@ export const maxDuration = 30;
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { Task } from "@/models/Task";
-import { getSessionOrUnauthorized } from "@/lib/auth-helpers";
+import { getSessionOrUnauthorized, getVisibleProject, visibleProjectIds } from "@/lib/auth-helpers";
 
 function escapeCsv(val: string): string {
   if (val.includes(",") || val.includes('"') || val.includes("\n")) {
@@ -14,13 +14,19 @@ function escapeCsv(val: string): string {
 }
 
 export async function GET(req: NextRequest) {
-  const { error } = await getSessionOrUnauthorized();
+  const { session, error } = await getSessionOrUnauthorized();
   if (error) return error;
   await connectDB();
 
   const projectId = req.nextUrl.searchParams.get("projectId");
   const query: Record<string, unknown> = { archived: { $ne: true } };
-  if (projectId) query.projectId = projectId;
+  if (projectId) {
+    const project = await getVisibleProject(session, projectId);
+    if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    query.projectId = projectId;
+  } else {
+    query.projectId = { $in: await visibleProjectIds(session) };
+  }
 
   const tasks = await Task.find(query)
     .sort({ cardNumber: -1 })

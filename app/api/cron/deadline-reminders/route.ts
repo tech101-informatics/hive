@@ -22,11 +22,16 @@ export async function GET(req: NextRequest) {
   const now = new Date();
   const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
+  // Exclude admin-only boards entirely from Slack reminders
+  const nonAdminProjects = await Project.find({ isAdminOnly: { $ne: true } }).select("_id").lean<Array<{ _id: unknown }>>();
+  const nonAdminProjectIds = nonAdminProjects.map((p) => p._id);
+
   // Upcoming: in-progress cards with deadlines in the next 24 hours
   const upcomingTasks = await Task.find({
     deadline: { $gte: now, $lte: in24h },
     status: { $in: reminderSlugs },
     archived: { $ne: true },
+    projectId: { $in: nonAdminProjectIds },
   }).lean();
 
   // Overdue: in-progress cards with deadlines in the past
@@ -34,6 +39,7 @@ export async function GET(req: NextRequest) {
     deadline: { $lt: now },
     status: { $in: reminderSlugs },
     archived: { $ne: true },
+    projectId: { $in: nonAdminProjectIds },
   }).lean();
 
   const allTasks = [...upcomingTasks, ...overdueTasks];

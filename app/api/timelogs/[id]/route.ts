@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { TimeLog } from "@/models/TimeLog";
-import { getSessionOrUnauthorized } from "@/lib/auth-helpers";
+import { Task } from "@/models/Task";
+import { getSessionOrUnauthorized, getVisibleProject } from "@/lib/auth-helpers";
 
 export async function DELETE(
   _: NextRequest,
@@ -15,6 +16,12 @@ export async function DELETE(
   const log = await TimeLog.findById(id);
   if (!log) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const task = await Task.findById(log.taskId).select("projectId");
+  if (task) {
+    const project = await getVisibleProject(session, String(task.projectId));
+    if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   // Only the author or admin can delete

@@ -5,6 +5,7 @@ export interface IProject extends Document {
   description: string;
   status: "active" | "completed" | "on-hold" | "archived";
   color: string;
+  isAdminOnly: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -15,6 +16,7 @@ const ProjectSchema = new Schema<IProject>(
     description: { type: String, default: "" },
     status: { type: String, enum: ["active", "completed", "on-hold", "archived"], default: "active" },
     color: { type: String, default: "#6366f1" },
+    isAdminOnly: { type: Boolean, default: false, index: true },
   },
   { timestamps: true }
 );

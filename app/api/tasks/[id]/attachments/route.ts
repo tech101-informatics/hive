@@ -6,16 +6,21 @@ import { connectDB } from "@/lib/mongodb";
 import { Attachment } from "@/models/Attachment";
 import { Task } from "@/models/Task";
 import { cloudinary } from "@/lib/cloudinary";
-import { getSessionOrUnauthorized } from "@/lib/auth-helpers";
+import { getSessionOrUnauthorized, getVisibleProject } from "@/lib/auth-helpers";
 
 export async function GET(
   _: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await getSessionOrUnauthorized();
+  const { session, error } = await getSessionOrUnauthorized();
   if (error) return error;
   const { id } = await params;
   await connectDB();
+
+  const task = await Task.findById(id);
+  if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const project = await getVisibleProject(session, String(task.projectId));
+  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const attachments = await Attachment.find({ taskId: id })
     .sort({ createdAt: -1 })
@@ -34,6 +39,8 @@ export async function POST(
 
   const task = await Task.findById(id);
   if (!task) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  const project = await getVisibleProject(session, String(task.projectId));
+  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const formData = await req.formData();
   const file = formData.get("file") as File;
@@ -86,6 +93,11 @@ export async function DELETE(
   if (error) return error;
   const { id: taskId } = await params;
   await connectDB();
+
+  const task = await Task.findById(taskId);
+  if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const project = await getVisibleProject(session, String(task.projectId));
+  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { attachmentId } = await req.json();
   if (!attachmentId) {

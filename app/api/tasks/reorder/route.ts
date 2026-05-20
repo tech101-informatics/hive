@@ -4,10 +4,10 @@ export const maxDuration = 30;
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { Task } from "@/models/Task";
-import { getSessionOrUnauthorized } from "@/lib/auth-helpers";
+import { getSessionOrUnauthorized, visibleProjectIds } from "@/lib/auth-helpers";
 
 export async function PUT(req: NextRequest) {
-  const { error } = await getSessionOrUnauthorized();
+  const { session, error } = await getSessionOrUnauthorized();
   if (error) return error;
   await connectDB();
 
@@ -18,9 +18,11 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "tasks array required" }, { status: 400 });
   }
 
+  const allowedProjectIds = await visibleProjectIds(session);
+
   const ops = tasks.map((t: { id: string; position: number; status?: string }) => ({
     updateOne: {
-      filter: { _id: t.id },
+      filter: { _id: t.id, projectId: { $in: allowedProjectIds } },
       update: { $set: { position: t.position, ...(t.status ? { status: t.status } : {}) } },
     },
   }));

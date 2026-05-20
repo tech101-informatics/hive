@@ -304,6 +304,19 @@ export async function fetchSlackUsers(): Promise<SlackUser[]> {
 
 // --------------- main notification dispatcher ---------------
 
+/** Returns true if the given project is admin-only and should not appear in Slack at all. */
+async function isProjectAdminOnly(projectId?: string): Promise<boolean> {
+  if (!projectId) return false;
+  try {
+    const { Project } = await import("@/models/Project");
+    const p = await Project.findById(projectId).select("isAdminOnly").lean<{ isAdminOnly?: boolean } | null>();
+    return !!p?.isAdminOnly;
+  } catch (e) {
+    console.error("[Slack] isProjectAdminOnly lookup failed:", e);
+    return false;
+  }
+}
+
 export async function sendSlackNotification(
   event: SlackEvent,
   slackMap?: Map<string, string>,
@@ -313,6 +326,10 @@ export async function sendSlackNotification(
     console.log(
       "[Slack] Not configured — SLACK_WEBHOOK_URL and SLACK_BOT_TOKEN both empty",
     );
+    return undefined;
+  }
+  if (await isProjectAdminOnly(event.projectId)) {
+    console.log(`[Slack] Skipping ${event.type} — project ${event.projectId} is admin-only`);
     return undefined;
   }
   const map = slackMap || new Map<string, string>();
@@ -526,7 +543,12 @@ export async function postUpdateToThread(
   projectName: string,
   changedBy: string,
   changes: string[],
+  projectId?: string,
 ) {
+  if (await isProjectAdminOnly(projectId)) {
+    console.log(`[Slack] Skipping thread update — project ${projectId} is admin-only`);
+    return;
+  }
   const text =
     `*${taskTitle}* updated by *${changedBy}*\n` +
     `Project: *${projectName}*\n\n` +

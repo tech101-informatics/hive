@@ -2,25 +2,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import { Comment } from "@/models/Comment";
 import { Task } from "@/models/Task";
-import { getSessionOrUnauthorized } from "@/lib/auth-helpers";
+import { getSessionOrUnauthorized, getVisibleProject } from "@/lib/auth-helpers";
+import type { Session } from "next-auth";
 
-async function resolveTaskId(id: string): Promise<string | null> {
+async function resolveTaskWithVisibility(
+  id: string,
+  session: Session | null,
+): Promise<{ taskId: string } | null> {
+  let task;
   if (/^SP-\d+$/i.test(id)) {
     const num = parseInt(id.replace(/^SP-/i, ""), 10);
-    const task = await Task.findOne({ cardNumber: num }).select("_id");
-    return task ? String(task._id) : null;
+    task = await Task.findOne({ cardNumber: num }).select("_id projectId");
+  } else {
+    task = await Task.findById(id).select("_id projectId");
   }
-  return id;
+  if (!task) return null;
+  const project = await getVisibleProject(session, String(task.projectId));
+  if (!project) return null;
+  return { taskId: String(task._id) };
 }
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { error } = await getSessionOrUnauthorized();
+  const { session, error } = await getSessionOrUnauthorized();
   if (error) return error;
   const { id } = await params;
   await connectDB();
-  const taskId = await resolveTaskId(id);
-  if (!taskId) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const comments = await Comment.find({ taskId }).sort({ createdAt: 1 });
+  const resolved = await resolveTaskWithVisibility(id, session);
+  if (!resolved) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const comments = await Comment.find({ taskId: resolved.taskId }).sort({ createdAt: 1 });
   return NextResponse.json(comments);
 }
 
@@ -29,8 +38,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (error) return error;
   const { id } = await params;
   await connectDB();
-  const taskId = await resolveTaskId(id);
-  if (!taskId) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const resolved = await resolveTaskWithVisibility(id, session);
+  if (!resolved) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const taskId = resolved.taskId;
 
   const { content } = await req.json();
   if (!content?.trim()) {

@@ -39,6 +39,14 @@ export async function POST(req: NextRequest) {
     await connectDB();
     const task = await Task.findOne({ slackThreadTs: messageTs }).lean();
 
+    // Ignore right-clicks that resolve to a card on an admin-only board
+    if (task) {
+      const project = await Project.findById((task as any).projectId).select("isAdminOnly").lean();
+      if ((project as any)?.isAdminOnly) {
+        return new NextResponse("", { status: 200 });
+      }
+    }
+
     // Format existing deadline for the date picker (YYYY-MM-DD)
     const existingDeadline = (task as any)?.deadline
       ? new Date((task as any).deadline).toISOString().split("T")[0]
@@ -229,6 +237,10 @@ async function handleTaskUpdate(payload: any) {
     }
 
     const project = await Project.findById(task.projectId).lean();
+    if ((project as any)?.isAdminOnly) {
+      await postEphemeral(channelId, userId, "Not found.");
+      return;
+    }
     const projectName = (project as any)?.name || "Unknown Project";
     const cardLink = `${process.env.APP_URL}/projects/${task.projectId}?task=${task._id}`;
 
