@@ -8,6 +8,7 @@ export interface ISavedFilter extends Document {
     priority: string;
     assignees: string[];
     labels: string[];
+    statuses: string[];
   };
   createdBy: string;
   createdByEmail: string;
@@ -24,6 +25,7 @@ const SavedFilterSchema = new Schema<ISavedFilter>(
       priority: { type: String, default: "" },
       assignees: { type: [String], default: [] },
       labels: { type: [String], default: [] },
+      statuses: { type: [String], default: [] },
     },
     createdBy: { type: String, required: true },
     createdByEmail: { type: String, required: true },

@@ -24,6 +24,7 @@ import {
   Table2,
   Lock,
   Unlock,
+  CircleDot,
 } from "lucide-react";
 import { KanbanBoard } from "@/components/KanbanBoard";
 import { CreateTaskModal } from "@/components/CreateTaskModal";
@@ -44,7 +45,7 @@ interface Project {
 interface SavedFilterData {
   _id: string;
   name: string;
-  filters: { search: string; priority: string; assignees: string[]; labels: string[] };
+  filters: { search: string; priority: string; assignees: string[]; labels: string[]; statuses?: string[] };
 }
 
 function SavedViewsDropdown({
@@ -98,7 +99,7 @@ function SavedViewsDropdown({
               <button
                 type="button"
                 onClick={() => {
-                  onApply({ _id: "", name: "", filters: { search: "", priority: "", assignees: [], labels: [] } });
+                  onApply({ _id: "", name: "", filters: { search: "", priority: "", assignees: [], labels: [], statuses: [] } });
                   setOpen(false);
                 }}
                 className="w-full text-left px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-surface transition-colors cursor-pointer"
@@ -339,6 +340,7 @@ export default function ProjectPage() {
   const [filterPriority, setFilterPriority] = useState<string>("");
   const [filterAssignees, setFilterAssignees] = useState<string[]>([]);
   const [filterLabels, setFilterLabels] = useState<string[]>([]);
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
   const [members, setMembers] = useState<
     { _id: string; name: string; avatar?: string }[]
   >([]);
@@ -356,6 +358,7 @@ export default function ProjectPage() {
     (filterPriority ? 1 : 0) +
     filterAssignees.length +
     filterLabels.length +
+    filterStatuses.length +
     (search ? 1 : 0);
 
   const fetchSavedFilters = () => {
@@ -402,6 +405,7 @@ export default function ProjectPage() {
     setFilterPriority(sf.filters.priority || "");
     setFilterAssignees(sf.filters.assignees || []);
     setFilterLabels(sf.filters.labels || []);
+    setFilterStatuses(sf.filters.statuses || []);
     setActiveFilterId(sf._id);
   };
 
@@ -413,7 +417,7 @@ export default function ProjectPage() {
       body: JSON.stringify({
         name: saveFilterName.trim(),
         projectId: id,
-        filters: { search, priority: filterPriority, assignees: filterAssignees, labels: filterLabels },
+        filters: { search, priority: filterPriority, assignees: filterAssignees, labels: filterLabels, statuses: filterStatuses },
       }),
     });
     setSaveFilterName("");
@@ -442,21 +446,32 @@ export default function ProjectPage() {
         !filterLabels.some((l) => (t.labels || []).includes(l))
       )
         return false;
+      if (
+        filterStatuses.length > 0 &&
+        !filterStatuses.includes(t.status)
+      )
+        return false;
       return true;
     });
-  }, [tasks, search, filterPriority, filterAssignees, filterLabels]);
+  }, [tasks, search, filterPriority, filterAssignees, filterLabels, filterStatuses]);
 
   const clearFilters = () => {
     setSearch("");
     setFilterPriority("");
     setFilterAssignees([]);
     setFilterLabels([]);
+    setFilterStatuses([]);
     setActiveFilterId(null);
   };
 
   const toggleLabel = (name: string) =>
     setFilterLabels((prev) =>
       prev.includes(name) ? prev.filter((l) => l !== name) : [...prev, name]
+    );
+
+  const toggleStatus = (slug: string) =>
+    setFilterStatuses((prev) =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
     );
 
   const fetchData = async () => {
@@ -770,6 +785,58 @@ export default function ProjectPage() {
               </button>
             ))}
           </FilterDropdown>
+
+          <MultiFilterDropdown
+            label="Status"
+            icon={<CircleDot size={13} />}
+            values={filterStatuses}
+            onToggle={toggleStatus}
+            onClear={() => setFilterStatuses([])}
+          >
+            {columns.map((col: any) => {
+              const selected = filterStatuses.includes(col.slug);
+              return (
+                <button
+                  key={col._id}
+                  type="button"
+                  onClick={() => toggleStatus(col.slug)}
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm transition-colors text-left hover:bg-bg-surface ${
+                    selected
+                      ? "filter-item-active"
+                      : "text-text-primary hover:bg-bg-base"
+                  }`}
+                >
+                  <span
+                    className={`w-3.5 h-3.5 rounded flex-shrink-0 flex items-center justify-center ${
+                      selected ? "bg-brand" : "bg-bg-base"
+                    }`}
+                  >
+                    {selected && (
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 10 10"
+                        fill="none"
+                      >
+                        <path
+                          d="M2 5L4 7L8 3"
+                          stroke="white"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    )}
+                  </span>
+                  <span
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: col.color }}
+                  />
+                  {col.label}
+                </button>
+              );
+            })}
+          </MultiFilterDropdown>
 
           <AssigneeDropdown
             variant="button"
