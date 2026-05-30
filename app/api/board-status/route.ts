@@ -10,11 +10,19 @@ function generateSlug(label: string): string {
     .replace(/[^a-z0-9-]/g, "");
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const { error } = await getSessionOrUnauthorized();
   if (error) return error;
   await connectDB();
-  const statuses = await BoardStatus.find().sort({ order: 1 }).lean();
+
+  // With ?projectId=X → global statuses + that project's locked statuses.
+  // Without it → every status (used by settings management & cross-project views).
+  const projectId = new URL(req.url).searchParams.get("projectId");
+  const filter = projectId
+    ? { $or: [{ projectId: null }, { projectId }] }
+    : {};
+
+  const statuses = await BoardStatus.find(filter).sort({ order: 1 }).lean();
   return NextResponse.json(statuses);
 }
 
@@ -23,12 +31,15 @@ export async function POST(req: NextRequest) {
   if (error) return error;
   await connectDB();
 
-  const { label, color, isDefault } = await req.json();
+  const { label, color, isDefault, projectId } = await req.json();
   if (!label?.trim()) {
     return NextResponse.json({ error: "Label is required" }, { status: 400 });
   }
 
-  // Generate unique slug
+  // null → global status; otherwise locked to the given project's board.
+  const scopedProjectId = projectId || null;
+
+  // Slugs stay globally unique so Task.status (a slug) is unambiguous.
   let slug = generateSlug(label);
   let existing = await BoardStatus.findOne({ slug });
   let suffix = 2;
@@ -42,9 +53,12 @@ export async function POST(req: NextRequest) {
   const last = await BoardStatus.findOne().sort({ order: -1 });
   const order = last ? last.order + 1 : 0;
 
-  // If setting as default, unset others
+  // Default is scoped: a project's default doesn't unset the global default.
   if (isDefault) {
-    await BoardStatus.updateMany({}, { isDefault: false });
+    await BoardStatus.updateMany(
+      { projectId: scopedProjectId },
+      { isDefault: false },
+    );
   }
 
   const status = await BoardStatus.create({
@@ -53,6 +67,7 @@ export async function POST(req: NextRequest) {
     color: color || "#6366f1",
     order,
     isDefault: isDefault || false,
+    projectId: scopedProjectId,
   });
 
   return NextResponse.json(status, { status: 201 });

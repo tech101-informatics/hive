@@ -478,7 +478,7 @@ export default function ProjectPage() {
     const [pRes, tRes, cRes] = await Promise.all([
       fetch(`/api/projects/${id}`),
       fetch(`/api/tasks?projectId=${id}`),
-      fetch("/api/board-status"),
+      fetch(`/api/board-status?projectId=${id}`),
     ]);
     const pData = await pRes.json();
     const tData = await tRes.json();

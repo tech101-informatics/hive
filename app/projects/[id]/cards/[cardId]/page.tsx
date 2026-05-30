@@ -21,7 +21,7 @@ export default function CardPage() {
       fetch(`/api/tasks/${cardId}`).then((r) => r.json()),
       fetch(`/api/tasks?projectId=${projectId}`).then((r) => r.json()),
       fetch(`/api/projects/${projectId}`).then((r) => r.json()),
-      fetch("/api/board-status").then((r) => r.json()),
+      fetch(`/api/board-status?projectId=${projectId}`).then((r) => r.json()),
     ]).then(([taskData, tasksData, projectData, statusData]) => {
       setTask(taskData?.error ? null : taskData);
       setAllTasks(Array.isArray(tasksData) ? tasksData : []);

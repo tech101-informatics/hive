@@ -60,7 +60,7 @@ export default function ArchivedCardsPage() {
 
   useEffect(() => {
     fetchArchived();
-    fetch("/api/board-status")
+    fetch(`/api/board-status?projectId=${projectId}`)
       .then((r) => r.json())
       .then((d) => setStatuses(Array.isArray(d) ? d : []));
   }, []);

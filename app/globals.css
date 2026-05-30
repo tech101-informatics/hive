@@ -2,6 +2,14 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Native control rendering (date pickers, etc.) follows the active theme */
+:root {
+  color-scheme: dark;
+}
+[data-theme="light"] {
+  color-scheme: light;
+}
+
 /* ─── Runtime CSS Variables (dark default) ──────────── */
 :root {
   --hive-brand: #395bea;
@@ -214,9 +222,19 @@ select.input-theme option {
 
 /* ─── Filter active states ─────────────────────────── */
 .filter-btn-active {
-  background: color-mix(in srgb, var(--hive-brand) 18%, var(--hive-bg-card));
-  border-color: var(--hive-brand);
+  background: color-mix(in srgb, var(--hive-brand) 14%, var(--hive-bg-card));
   color: var(--hive-brand);
+}
+
+@keyframes filterPop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 .filter-item-active {
   background: color-mix(in srgb, var(--hive-brand) 15%, var(--hive-bg-card));

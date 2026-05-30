@@ -17,9 +17,12 @@ export async function PUT(
   const status = await BoardStatus.findById(id);
   if (!status) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // If setting as default, unset others first
+  // If setting as default, unset others within the same scope (global vs project).
   if (body.isDefault === true) {
-    await BoardStatus.updateMany({ _id: { $ne: id } }, { isDefault: false });
+    await BoardStatus.updateMany(
+      { _id: { $ne: id }, projectId: status.projectId ?? null },
+      { isDefault: false },
+    );
   }
 
   // Update allowed fields (never change slug)
@@ -66,9 +69,12 @@ export async function DELETE(
     );
   }
 
-  // If deleting the default, promote the first remaining column
+  // If deleting the default, promote the first remaining column in the same scope
   if (status.isDefault) {
-    const next = await BoardStatus.findOne({ _id: { $ne: id } }).sort({ order: 1 });
+    const next = await BoardStatus.findOne({
+      _id: { $ne: id },
+      projectId: status.projectId ?? null,
+    }).sort({ order: 1 });
     if (next) {
       next.isDefault = true;
       await next.save();

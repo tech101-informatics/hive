@@ -374,7 +374,12 @@ export default function CalendarPage() {
         <EditTaskModal
           task={selectedTask as any}
           allTasks={projectTasks as any}
-          statuses={columns}
+          statuses={columns.filter(
+            (c: any) =>
+              !c.projectId ||
+              String(c.projectId) ===
+                String((selectedTask as any).projectId),
+          )}
           boardName={selectedProject?.name || ""}
           boardStatus=""
           onClose={() => setSelectedTask(null)}

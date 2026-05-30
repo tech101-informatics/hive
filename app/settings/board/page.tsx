@@ -11,6 +11,7 @@ import {
   Check,
   AlertTriangle,
   Pipette,
+  Lock,
 } from "lucide-react";
 import { ConfirmModal } from "@/components/ConfirmModal";
 
@@ -24,6 +25,13 @@ interface BoardColumn {
   order: number;
   wipLimit?: number;
   isDefault: boolean;
+  projectId?: string | null;
+}
+
+interface Project {
+  _id: string;
+  name: string;
+  color: string;
 }
 
 const PRESET_COLORS = [
@@ -42,6 +50,7 @@ export default function BoardSettingsPage() {
   const isAdmin = session?.user?.role === "admin";
 
   const [columns, setColumns] = useState<BoardColumn[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -59,6 +68,8 @@ export default function BoardSettingsPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [newColor, setNewColor] = useState(PRESET_COLORS[0]);
+  // "" → global (all projects); otherwise a projectId to lock the status to.
+  const [newScope, setNewScope] = useState("");
 
   // Delete dialog
   const [deleteTarget, setDeleteTarget] = useState<BoardColumn | null>(null);
@@ -78,6 +89,9 @@ export default function BoardSettingsPage() {
 
   useEffect(() => {
     fetchColumns();
+    fetch("/api/projects")
+      .then((r) => r.json())
+      .then((d) => setProjects(Array.isArray(d) ? d : []));
   }, []);
 
   useEffect(() => {
@@ -184,10 +198,15 @@ export default function BoardSettingsPage() {
     await fetch("/api/board-status", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label: newLabel.trim(), color: newColor }),
+      body: JSON.stringify({
+        label: newLabel.trim(),
+        color: newColor,
+        projectId: newScope || undefined,
+      }),
     });
     setNewLabel("");
     setNewColor(PRESET_COLORS[0]);
+    setNewScope("");
     setShowAddForm(false);
     fetchColumns();
     showToast("Column added");
@@ -237,6 +256,8 @@ export default function BoardSettingsPage() {
     );
   }
 
+  const projectMap = new Map(projects.map((p) => [p._id, p]));
+
   return (
     <div className="max-w-2xl">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
@@ -245,7 +266,8 @@ export default function BoardSettingsPage() {
             Statuses
           </h1>
           <p className="text-text-secondary text-sm mt-1 hidden sm:block">
-            Configure the statuses on your Kanban board
+            Global statuses appear on every board; locked statuses only show on
+            their project.
           </p>
         </div>
         <button
@@ -312,6 +334,22 @@ export default function BoardSettingsPage() {
                     <span className="text-sm font-medium text-text-primary">
                       {col.label}
                     </span>
+                    {col.projectId ? (
+                      <span
+                        className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium"
+                        style={{
+                          backgroundColor: `color-mix(in srgb, ${
+                            projectMap.get(col.projectId)?.color || "#8b909a"
+                          } 16%, transparent)`,
+                          color:
+                            projectMap.get(col.projectId)?.color || "#8b909a",
+                        }}
+                        title="Locked to this project"
+                      >
+                        <Lock size={9} />
+                        {projectMap.get(col.projectId)?.name || "Project"}
+                      </span>
+                    ) : null}
                     <span className="text-xs text-text-600 font-mono hidden sm:inline">
                       {col.slug}
                     </span>
@@ -482,18 +520,34 @@ export default function BoardSettingsPage() {
       {/* Add column form */}
       {showAddForm && (
         <div className="mt-4 rounded-2xl bg-bg-card p-4">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <input
               autoFocus
-              className="flex-1 text-sm bg-bg-base text-text-primary placeholder:text-text-disabled rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand"
+              className="flex-1 min-w-[160px] text-sm bg-bg-base text-text-primary placeholder:text-text-disabled rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-brand"
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
               placeholder="Column name..."
               onKeyDown={(e) => {
                 if (e.key === "Enter") addColumn();
-                if (e.key === "Escape") setShowAddForm(false);
+                if (e.key === "Escape") {
+                  setShowAddForm(false);
+                  setNewScope("");
+                }
               }}
             />
+            <select
+              value={newScope}
+              onChange={(e) => setNewScope(e.target.value)}
+              className="text-sm bg-bg-base text-text-primary rounded-lg px-2.5 py-2 outline-none focus:ring-2 focus:ring-brand cursor-pointer"
+              title="Where this status is available"
+            >
+              <option value="">All projects (Global)</option>
+              {projects.map((p) => (
+                <option key={p._id} value={p._id}>
+                  Only: {p.name}
+                </option>
+              ))}
+            </select>
             <div className="flex items-center gap-1">
               {PRESET_COLORS.map((c) => (
                 <button
@@ -527,7 +581,10 @@ export default function BoardSettingsPage() {
               Add
             </button>
             <button
-              onClick={() => setShowAddForm(false)}
+              onClick={() => {
+                setShowAddForm(false);
+                setNewScope("");
+              }}
               className="p-2 text-text-disabled hover:text-text-secondary"
             >
               <X size={16} />

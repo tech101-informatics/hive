@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   Loader2,
@@ -13,6 +14,32 @@ import {
   Zap,
   AlertTriangle,
 } from "lucide-react";
+
+// Deterministic avatar styling derived from a member's name.
+const AVATAR_COLORS = [
+  "#6366f1",
+  "#0ea5e9",
+  "#10b981",
+  "#f59e0b",
+  "#ec4899",
+  "#8b5cf6",
+  "#14b8a6",
+  "#ef4444",
+  "#f97316",
+  "#3b82f6",
+];
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function avatarColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
 
 interface BoardTimeStat {
   status: string;
@@ -95,6 +122,17 @@ function formatDuration(ms: number): string {
   return remHours > 0 ? `${days}d ${remHours}h` : `${days}d`;
 }
 
+// Compact single-unit duration for dense heatmap cells (e.g. "2.1d", "5h").
+function formatCompact(ms: number): string {
+  if (ms <= 0) return "";
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = hours / 24;
+  return days >= 10 ? `${Math.round(days)}d` : `${Math.round(days * 10) / 10}d`;
+}
+
 function formatDurationLong(ms: number): string {
   if (ms < 0) ms = 0;
   const totalMinutes = Math.floor(ms / 60000);
@@ -119,8 +157,12 @@ function formatWeekLabel(dateStr: string): string {
 }
 
 export default function AnalyticsPage() {
+  const router = useRouter();
   const { data: session, status: authStatus } = useSession();
   const isAdmin = session?.user?.role === "admin";
+
+  const openMember = (name: string) =>
+    router.push(`/analytics/members/${encodeURIComponent(name)}`);
 
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -187,9 +229,10 @@ export default function AnalyticsPage() {
     ...data.boardTimeStats.map((s) => s.avgMs),
     1
   );
-  const maxMemberTime = Math.max(
-    ...data.memberStats.map((s) => s.totalMs),
-    1
+  // Per-card time-in-each-status, keyed by taskId — joined into the member
+  // breakdown so we can show how long each member's cards sat in each column.
+  const taskStatusTimes = new Map<string, Record<string, number>>(
+    data.cardBreakdown.map((c) => [c.taskId, c.statusTimes])
   );
 
   const sortedCards =
@@ -221,7 +264,6 @@ export default function AnalyticsPage() {
   const velocity = totalCompleted30d > 0 ? (totalCompleted30d / 30).toFixed(1) : "0";
 
   // Workload stats
-  const maxWorkload = Math.max(...data.workload.map((w) => w.total), 1);
   const totalOpenCards = data.workload.reduce((s, w) => s + w.total, 0);
 
   // Cycle time trend
@@ -657,182 +699,410 @@ export default function AnalyticsPage() {
                 No open cards assigned.
               </p>
             ) : (
-              <div className="space-y-3">
-                {data.workload.map((member) => {
-                  const avg = totalOpenCards / Math.max(data.workload.filter(w => w.memberName !== "Unassigned").length, 1);
-                  const isOverloaded = member.memberName !== "Unassigned" && member.total > avg * 1.5;
-                  const highCount = member.byPriority["high"] || 0;
+              (() => {
+                const assignedMembers = data.workload.filter(
+                  (w) => w.memberName !== "Unassigned"
+                );
+                const avg =
+                  assignedMembers.reduce((s, w) => s + w.total, 0) /
+                  Math.max(assignedMembers.length, 1);
 
-                  return (
-                    <div key={member.memberName}>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`text-sm font-medium ${
-                              member.memberName === "Unassigned"
-                                ? "text-text-disabled italic"
-                                : "text-text-primary"
-                            }`}
-                          >
-                            {member.memberName}
-                          </span>
-                          {isOverloaded && (
-                            <span className="text-xs text-warning flex items-center gap-1">
-                              <AlertTriangle size={10} />
-                              Heavy
-                            </span>
-                          )}
-                          {highCount > 0 && (
-                            <span className="text-xs text-danger flex items-center gap-1">
-                              <Zap size={10} />
-                              {highCount} high
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-sm font-semibold text-text-primary tabular-nums">
-                          {member.total} card
-                          {member.total !== 1 ? "s" : ""}
-                        </span>
-                      </div>
+                // Columns: statuses holding at least one card, in board order.
+                const present = new Set<string>();
+                data.workload.forEach((w) =>
+                  Object.keys(w.byStatus).forEach((s) => present.add(s))
+                );
+                const columns = Object.keys(data.statusLabelMap).filter((s) =>
+                  present.has(s)
+                );
+                present.forEach((s) => {
+                  if (!columns.includes(s)) columns.push(s);
+                });
 
-                      {/* Stacked status bar */}
-                      <div className="w-full h-3 rounded-full overflow-hidden flex bg-bg-base">
-                        {Object.entries(member.byStatus).map(
-                          ([status, count]) => {
-                            const statusInfo = data.statusLabelMap[status];
-                            const pct = (count / member.total) * 100;
+                const maxCell = Math.max(
+                  1,
+                  ...data.workload.flatMap((w) => Object.values(w.byStatus))
+                );
+
+                const tint = (color: string, value: number) =>
+                  value <= 0
+                    ? "transparent"
+                    : `color-mix(in srgb, ${color} ${Math.round(
+                        16 + (value / maxCell) * 64
+                      )}%, transparent)`;
+
+                return (
+                  <div className="overflow-x-auto">
+                    <table
+                      className="w-full border-separate"
+                      style={{ borderSpacing: "0 6px" }}
+                    >
+                      <thead>
+                        <tr>
+                          <th className="pb-1 pl-1 text-left text-[11px] font-medium uppercase tracking-wide text-text-disabled">
+                            Member
+                          </th>
+                          {columns.map((s) => {
+                            const info = data.statusLabelMap[s];
                             return (
-                              <div
-                                key={status}
-                                className="h-full transition-all"
-                                style={{
-                                  width: `${pct}%`,
-                                  backgroundColor:
-                                    statusInfo?.color || "#64748b",
-                                  opacity: 0.7,
-                                }}
-                                title={`${statusInfo?.label || status}: ${count}`}
-                              />
+                              <th key={s} className="px-1 pb-1">
+                                <div className="flex items-center justify-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-text-secondary">
+                                  <span
+                                    className="inline-block h-1.5 w-1.5 rounded-full"
+                                    style={{
+                                      backgroundColor: info?.color || "#64748b",
+                                    }}
+                                  />
+                                  {info?.label || s}
+                                </div>
+                              </th>
                             );
-                          }
-                        )}
-                      </div>
+                          })}
+                          <th className="pb-1 pr-1 text-right text-[11px] font-medium uppercase tracking-wide text-text-disabled">
+                            Total
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.workload.map((member) => {
+                          const isUnassigned =
+                            member.memberName === "Unassigned";
+                          const isOverloaded =
+                            !isUnassigned && member.total > avg * 1.5;
+                          const highCount = member.byPriority["high"] || 0;
 
-                      {/* Status breakdown */}
-                      <div className="flex gap-3 mt-1 flex-wrap">
-                        {Object.entries(member.byStatus).map(
-                          ([status, count]) => {
-                            const statusInfo = data.statusLabelMap[status];
-                            return (
-                              <span
-                                key={status}
-                                className="text-xs text-text-disabled flex items-center gap-1"
-                              >
-                                <span
-                                  className="w-1.5 h-1.5 rounded-full inline-block"
-                                  style={{
-                                    backgroundColor:
-                                      statusInfo?.color || "#64748b",
-                                  }}
-                                />
-                                {statusInfo?.label || status}: {count}
-                              </span>
-                            );
-                          }
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                          return (
+                            <tr key={member.memberName} className="group">
+                              <td className="py-1 pr-3">
+                                <div
+                                  onClick={() =>
+                                    !isUnassigned &&
+                                    openMember(member.memberName)
+                                  }
+                                  className={`flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition-colors ${
+                                    isUnassigned
+                                      ? ""
+                                      : "cursor-pointer group-hover:bg-bg-surface"
+                                  }`}
+                                >
+                                  {isUnassigned ? (
+                                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-dashed border-border text-text-disabled">
+                                      <Users size={12} />
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+                                      style={{
+                                        backgroundColor: avatarColor(
+                                          member.memberName
+                                        ),
+                                      }}
+                                    >
+                                      {initials(member.memberName)}
+                                    </span>
+                                  )}
+                                  <span
+                                    className={`whitespace-nowrap text-sm font-medium ${
+                                      isUnassigned
+                                        ? "italic text-text-disabled"
+                                        : "text-text-primary"
+                                    }`}
+                                  >
+                                    {member.memberName}
+                                  </span>
+                                  {isOverloaded && (
+                                    <span className="flex flex-shrink-0 items-center gap-1 rounded-md bg-warning-subtle px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                                      <AlertTriangle size={9} />
+                                      Heavy
+                                    </span>
+                                  )}
+                                  {highCount > 0 && (
+                                    <span className="flex flex-shrink-0 items-center gap-1 rounded-md bg-danger-subtle px-1.5 py-0.5 text-[10px] font-medium text-danger">
+                                      <Zap size={9} />
+                                      {highCount} high
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              {columns.map((s) => {
+                                const v = member.byStatus[s] || 0;
+                                const info = data.statusLabelMap[s];
+                                return (
+                                  <td key={s} className="px-0.5">
+                                    <div
+                                      className="mx-auto min-w-[40px] rounded-md py-2 text-center text-[12px] font-medium tabular-nums"
+                                      style={{
+                                        backgroundColor: tint(
+                                          info?.color || "#64748b",
+                                          v
+                                        ),
+                                        color:
+                                          v > 0
+                                            ? "var(--hive-text-primary)"
+                                            : "var(--hive-text-disabled)",
+                                      }}
+                                    >
+                                      {v > 0 ? v : "·"}
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                              <td className="py-1 pl-3 pr-1 text-right">
+                                <span className="whitespace-nowrap text-sm font-semibold tabular-nums text-text-primary">
+                                  {member.total}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()
             )}
           </div>
 
           {/* Time Per Member */}
           <div className="rounded-2xl bg-bg-card p-5">
-            <h2 className="text-sm font-medium text-text-secondary mb-5">
-              Time Per Member
-            </h2>
+            <div className="mb-5">
+              <h2 className="text-sm font-medium text-text-secondary">
+                Time Per Member
+              </h2>
+              <p className="text-xs text-text-disabled mt-0.5">
+                Hours each member&apos;s cards spent in each status. Click a row
+                to break it down per card.
+              </p>
+            </div>
 
             {data.memberStats.length === 0 ? (
               <p className="text-text-disabled text-sm py-4">
                 No data yet. Assign members to cards to start tracking.
               </p>
             ) : (
-              <div className="space-y-3">
-                {data.memberStats.map((member) => (
-                  <div key={member.memberName}>
-                    <button
-                      onClick={() => toggleMember(member.memberName)}
-                      className="w-full text-left"
-                    >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          {expandedMembers.has(member.memberName) ? (
-                            <ChevronDown
-                              size={14}
-                              className="text-text-disabled"
-                            />
-                          ) : (
-                            <ChevronRight
-                              size={14}
-                              className="text-text-disabled"
-                            />
-                          )}
-                          <span className="text-sm font-medium text-text-primary">
-                            {member.memberName}
-                          </span>
-                          <span className="text-xs text-text-disabled">
-                            {member.cardCount} card
-                            {member.cardCount !== 1 ? "s" : ""}
-                          </span>
-                        </div>
-                        <span className="text-sm font-semibold text-text-primary tabular-nums">
-                          {formatDuration(member.totalMs)}
-                        </span>
-                      </div>
-                      <div className="w-full h-2 bg-bg-base rounded-full overflow-hidden ml-5">
-                        <div
-                          className="h-full rounded-full transition-all duration-500 bg-violet-500"
-                          style={{
-                            width: `${Math.max((member.totalMs / maxMemberTime) * 100, 2)}%`,
-                            opacity: 0.7,
-                          }}
-                        />
-                      </div>
-                    </button>
+              (() => {
+                // Per-member time-in-status aggregates.
+                const memberRows = data.memberStats.map((member) => {
+                  const agg: Record<string, number> = {};
+                  for (const card of member.cards) {
+                    const st = taskStatusTimes.get(card.taskId);
+                    if (!st) continue;
+                    for (const [status, ms] of Object.entries(st)) {
+                      agg[status] = (agg[status] || 0) + ms;
+                    }
+                  }
+                  const total = Object.values(agg).reduce((s, v) => s + v, 0);
+                  return { member, agg, total };
+                });
 
-                    {expandedMembers.has(member.memberName) && (
-                      <div className="mt-2 ml-5 space-y-1">
-                        {member.cards.map((card, i) => (
-                          <div
-                            key={`${card.taskId}-${i}`}
-                            className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-bg-base text-sm"
-                          >
-                            <span className="text-text-secondary truncate mr-3">
-                              {card.cardNumber
-                                ? `SP-${card.cardNumber}`
-                                : ""}{" "}
-                              {card.title}
-                            </span>
-                            <span className="text-text-primary font-medium whitespace-nowrap tabular-nums">
-                              {formatDuration(card.durationMs)}
-                            </span>
-                          </div>
-                        ))}
-                        <div className="flex items-center justify-between px-3 py-1.5 text-sm mt-1 pt-1.5 border-t border-bg-base">
-                          <span className="text-text-disabled">
-                            Avg per card
-                          </span>
-                          <span className="text-text-secondary font-medium tabular-nums">
-                            {formatDuration(member.avgMsPerCard)}
-                          </span>
-                        </div>
-                      </div>
-                    )}
+                // Columns: statuses that actually accrued time, in board order.
+                const present = new Set<string>();
+                memberRows.forEach((r) =>
+                  Object.keys(r.agg).forEach((s) => present.add(s))
+                );
+                const columns = Object.keys(data.statusLabelMap).filter((s) =>
+                  present.has(s)
+                );
+                present.forEach((s) => {
+                  if (!columns.includes(s)) columns.push(s);
+                });
+
+                const maxCell = Math.max(
+                  1,
+                  ...memberRows.flatMap((r) => Object.values(r.agg))
+                );
+                memberRows.sort((a, b) => b.total - a.total);
+
+                const tint = (color: string, value: number, max: number) =>
+                  value <= 0
+                    ? "transparent"
+                    : `color-mix(in srgb, ${color} ${Math.round(
+                        16 + (value / max) * 64
+                      )}%, transparent)`;
+
+                return (
+                  <div className="overflow-x-auto">
+                    <table
+                      className="w-full border-separate"
+                      style={{ borderSpacing: "0 6px" }}
+                    >
+                      <thead>
+                        <tr>
+                          <th className="pb-1 pl-1 text-left text-[11px] font-medium uppercase tracking-wide text-text-disabled">
+                            Member
+                          </th>
+                          {columns.map((s) => {
+                            const info = data.statusLabelMap[s];
+                            return (
+                              <th key={s} className="px-1 pb-1">
+                                <div className="flex items-center justify-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-text-secondary">
+                                  <span
+                                    className="inline-block h-1.5 w-1.5 rounded-full"
+                                    style={{
+                                      backgroundColor: info?.color || "#64748b",
+                                    }}
+                                  />
+                                  {info?.label || s}
+                                </div>
+                              </th>
+                            );
+                          })}
+                          <th className="pb-1 pr-1 text-right text-[11px] font-medium uppercase tracking-wide text-text-disabled">
+                            Total
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {memberRows.map(({ member, agg, total }) => {
+                          const expanded = expandedMembers.has(
+                            member.memberName
+                          );
+                          const cardRows = member.cards
+                            .map((card) => {
+                              const st = taskStatusTimes.get(card.taskId) || {};
+                              const ctotal = Object.values(st).reduce(
+                                (s, v) => s + v,
+                                0
+                              );
+                              return { card, st, ctotal };
+                            })
+                            .filter((c) => c.ctotal > 0)
+                            .sort((a, b) => b.ctotal - a.ctotal);
+                          const cardMax = Math.max(
+                            1,
+                            ...cardRows.flatMap((c) => Object.values(c.st))
+                          );
+
+                          const out = [
+                            <tr key={member.memberName} className="group">
+                              <td className="py-1 pr-3">
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      toggleMember(member.memberName)
+                                    }
+                                    aria-label="Toggle card breakdown"
+                                    className="flex-shrink-0 rounded p-0.5 text-text-disabled transition-colors hover:bg-bg-surface hover:text-text-secondary"
+                                  >
+                                    {expanded ? (
+                                      <ChevronDown size={13} />
+                                    ) : (
+                                      <ChevronRight size={13} />
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      openMember(member.memberName)
+                                    }
+                                    className="flex cursor-pointer items-center gap-2 rounded-lg py-1 pl-0.5 pr-2 transition-colors hover:bg-bg-surface"
+                                  >
+                                    <span
+                                      className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+                                      style={{
+                                        backgroundColor: avatarColor(
+                                          member.memberName
+                                        ),
+                                      }}
+                                    >
+                                      {initials(member.memberName)}
+                                    </span>
+                                    <span className="whitespace-nowrap text-sm font-medium text-text-primary">
+                                      {member.memberName}
+                                    </span>
+                                    <span className="text-[11px] text-text-disabled">
+                                      {member.cardCount}
+                                    </span>
+                                  </button>
+                                </div>
+                              </td>
+                              {columns.map((s) => {
+                                const v = agg[s] || 0;
+                                const info = data.statusLabelMap[s];
+                                return (
+                                  <td key={s} className="px-0.5">
+                                    <div
+                                      className="mx-auto min-w-[44px] rounded-md py-2 text-center text-[11px] tabular-nums"
+                                      style={{
+                                        backgroundColor: tint(
+                                          info?.color || "#64748b",
+                                          v,
+                                          maxCell
+                                        ),
+                                        color:
+                                          v > 0
+                                            ? "var(--hive-text-primary)"
+                                            : "var(--hive-text-disabled)",
+                                      }}
+                                    >
+                                      {v > 0 ? formatCompact(v) : "·"}
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                              <td className="py-1 pl-3 pr-1 text-right">
+                                <span className="whitespace-nowrap text-sm font-semibold tabular-nums text-text-primary">
+                                  {total > 0 ? formatDuration(total) : "—"}
+                                </span>
+                              </td>
+                            </tr>,
+                          ];
+
+                          if (expanded) {
+                            cardRows.forEach(({ card, st, ctotal }, i) => {
+                              out.push(
+                                <tr key={`${card.taskId}-${i}`}>
+                                  <td className="py-0.5 pl-10 pr-3">
+                                    <span className="block max-w-[220px] truncate text-xs text-text-secondary">
+                                      {card.cardNumber
+                                        ? `SP-${card.cardNumber} `
+                                        : ""}
+                                      {card.title}
+                                    </span>
+                                  </td>
+                                  {columns.map((s) => {
+                                    const v =
+                                      (st as Record<string, number>)[s] || 0;
+                                    const info = data.statusLabelMap[s];
+                                    return (
+                                      <td key={s} className="px-0.5">
+                                        <div
+                                          className="mx-auto min-w-[44px] rounded py-1 text-center text-[10px] tabular-nums"
+                                          style={{
+                                            backgroundColor: tint(
+                                              info?.color || "#64748b",
+                                              v,
+                                              cardMax
+                                            ),
+                                            color:
+                                              v > 0
+                                                ? "var(--hive-text-secondary)"
+                                                : "var(--hive-text-disabled)",
+                                          }}
+                                        >
+                                          {v > 0 ? formatCompact(v) : ""}
+                                        </div>
+                                      </td>
+                                    );
+                                  })}
+                                  <td className="py-0.5 pl-3 pr-1 text-right">
+                                    <span className="whitespace-nowrap text-xs tabular-nums text-text-secondary">
+                                      {formatDuration(ctotal)}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            });
+                          }
+
+                          return out;
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                ))}
-              </div>
+                );
+              })()
             )}
           </div>
         </>

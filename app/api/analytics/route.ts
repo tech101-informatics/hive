@@ -22,9 +22,15 @@ export async function GET(req: NextRequest) {
 
   const now = new Date();
 
-  // Get all board statuses (except todo)
-  const statuses = await BoardStatus.find({ slug: { $ne: "todo" } }).sort({ order: 1 }).lean();
-  const allStatuses = await BoardStatus.find().sort({ order: 1 }).lean();
+  // Statuses relevant to the view: when filtered to a project, that project's
+  // board (global + its locked statuses); otherwise every status.
+  const statusScope: Record<string, unknown> = projectId
+    ? { $or: [{ projectId: null }, { projectId }] }
+    : {};
+  const statuses = await BoardStatus.find({ ...statusScope, slug: { $ne: "todo" } })
+    .sort({ order: 1 })
+    .lean();
+  const allStatuses = await BoardStatus.find(statusScope).sort({ order: 1 }).lean();
 
   // --- Board Time Analytics ---
   const statusDurations = await CardStatusDuration.find(filter).lean();
